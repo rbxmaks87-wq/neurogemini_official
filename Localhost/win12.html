@@ -1,0 +1,2316 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Windows 12 Web Edition</title>
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Segoe+UI:wght@300;400;600&display=swap');
+        
+        body { font-family: 'Segoe UI', sans-serif; overflow: hidden; user-select: none; }
+        
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #888; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #555; }
+
+        /* Wallpaper */
+        .wallpaper-default { background: url('https://images.unsplash.com/photo-1579546929518-9e396f3cc809?ixlib=rb-4.0.3&auto=format&fit=crop&w=1920&q=80') center/cover no-repeat; }
+        .wallpaper-dark { background: url('https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?ixlib=rb-4.0.3&auto=format&fit=crop&w=1920&q=80') center/cover no-repeat; }
+
+        /* Window Animations */
+        .window-transition { transition: transform 0.2s, opacity 0.2s, width 0.1s, height 0.1s; }
+        .window-opening { transform: scale(0.95); opacity: 0; }
+        .window-open { transform: scale(1); opacity: 1; }
+        
+        /* Glassmorphism */
+        .glass { background: rgba(255, 255, 255, 0.7); backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.3); }
+        .glass-dark { background: rgba(30, 30, 30, 0.7); backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.1); color: white; }
+
+        /* Taskbar Animations */
+        .taskbar-item:hover { transform: translateY(-4px); }
+        .taskbar-item { transition: transform 0.2s; }
+        
+        /* Icon Grid */
+        #desktop-icons { display: grid; grid-template-columns: repeat(auto-fill, 96px); grid-template-rows: repeat(auto-fill, 96px); height: 100%; grid-auto-flow: column; align-content: start; }
+        
+        /* Canvas for Drawing/Games */
+        canvas { touch-action: none; }
+        
+        /* Utility */
+        .text-shadow { text-shadow: 0 1px 3px rgba(0,0,0,0.8); }
+    </style>
+</head>
+<body class="h-screen w-screen overflow-hidden bg-black text-gray-900 transition-colors duration-300" id="main-body">
+
+    <!-- Desktop Layer -->
+    <div id="desktop" class="absolute inset-0 z-0 wallpaper-default transition-all duration-500" onclick="FileSystem.clearSelection()">
+        <div id="desktop-icons" class="p-2 flex flex-col flex-wrap content-start gap-2 h-full w-full">
+            <!-- Icons injected by JS -->
+        </div>
+    </div>
+
+    <!-- Window Layer -->
+    <div id="window-layer" class="absolute inset-0 z-10 pointer-events-none">
+        <!-- Windows injected by JS -->
+    </div>
+
+    <!-- Context Menu -->
+    <div id="context-menu" class="hidden absolute z-50 glass rounded-lg shadow-xl py-2 w-56 text-sm flex flex-col backdrop-blur-md">
+        <!-- Menu items injected by JS -->
+    </div>
+
+    <!-- BSOD Screen -->
+    <div id="bsod-screen" class="hidden fixed inset-0 z-[10000] bg-[#0078d7] text-white p-10 md:p-20 font-[Segoe UI,sans-serif] cursor-none select-none flex flex-col justify-center items-start">
+        <div class="text-[8rem] md:text-[10rem] mb-4 leading-none">:(</div>
+        <div class="text-2xl md:text-3xl mb-8 max-w-4xl">Your PC ran into a problem and needs to restart. We're just collecting some error info, and then we'll restart for you.</div>
+        <div class="text-2xl mb-8"><span id="bsod-percent">0</span>% complete</div>
+        <div class="flex items-center gap-4 mt-8">
+            <div class="bg-white p-2 w-24 h-24 md:w-32 md:h-32 flex-shrink-0"><img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=BSOD_WINDOWS_12_WEB" class="w-full h-full"></div>
+            <div class="text-sm md:text-base">
+                <div class="mb-1">For more information about this issue and possible fixes, visit https://www.windows.com/stopcode</div>
+                <div class="mb-1">If you call a support person, give them this info:</div>
+                <div>Stop code: <span id="bsod-code" class="font-mono">CRITICAL_PROCESS_DIED</span></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Start Menu -->
+    <div id="start-menu" class="hidden absolute z-40 glass rounded-xl shadow-2xl p-6 w-[640px] h-[550px] transition-all duration-300 transform translate-y-full opacity-0 flex flex-col">
+        <div class="mb-4 relative">
+            <i class="fas fa-search absolute left-3 top-3 text-gray-500"></i>
+            <input type="text" id="global-search" placeholder="Search apps, files, and web..." class="w-full bg-white/50 rounded-full py-2 pl-10 pr-4 focus:outline-none focus:ring-2 focus:ring-blue-500">
+        </div>
+        
+        <div class="flex-1 overflow-y-auto pr-2 custom-scrollbar">
+            <h3 class="font-semibold mb-3 ml-1 text-sm text-gray-600 dark:text-gray-300">Pinned Apps</h3>
+            <div class="grid grid-cols-6 gap-4 mb-6" id="start-menu-grid">
+                <!-- Apps injected -->
+            </div>
+            
+            <h3 class="font-semibold mb-3 ml-1 text-sm text-gray-600 dark:text-gray-300">Recommended</h3>
+            <div class="grid grid-cols-2 gap-2" id="start-menu-recommended">
+                <div class="flex items-center gap-3 p-2 hover:bg-white/40 rounded cursor-pointer transition-colors">
+                    <i class="fas fa-file-word text-blue-500 text-xl"></i>
+                    <div class="flex flex-col">
+                        <span class="text-xs font-medium">Resume.docx</span>
+                        <span class="text-[10px] text-gray-500">Recently opened</span>
+                    </div>
+                </div>
+                <div class="flex items-center gap-3 p-2 hover:bg-white/40 rounded cursor-pointer transition-colors">
+                    <i class="fas fa-image text-purple-500 text-xl"></i>
+                    <div class="flex flex-col">
+                        <span class="text-xs font-medium">Design_v2.png</span>
+                        <span class="text-[10px] text-gray-500">10 min ago</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="mt-auto pt-4 border-t border-gray-200/30 flex justify-between items-center">
+            <div class="flex items-center gap-3 hover:bg-white/30 p-2 rounded-lg cursor-pointer transition-colors">
+                <div class="w-8 h-8 rounded-full bg-gradient-to-r from-blue-500 to-purple-500 flex items-center justify-center text-white text-xs font-bold shadow-sm">US</div>
+                <span class="text-sm font-medium">User</span>
+            </div>
+            <button class="text-gray-700 hover:bg-red-500 hover:text-white p-2 rounded-full w-10 h-10 flex items-center justify-center transition-all" onclick="window.location.reload()">
+                <i class="fas fa-power-off"></i>
+            </button>
+        </div>
+    </div>
+
+    <!-- Taskbar -->
+    <div id="taskbar" class="absolute z-50 glass flex items-center justify-between px-2 transition-all duration-300 backdrop-blur-xl">
+        <div class="flex items-center gap-1" id="taskbar-left">
+            <!-- Widgets button (optional) -->
+        </div>
+        <div class="flex items-center gap-1 h-full" id="taskbar-center">
+            <button class="taskbar-item p-2 rounded hover:bg-white/40 transition-colors w-10 h-10 flex items-center justify-center" onclick="OS.toggleStartMenu()">
+                <i class="fab fa-windows text-xl text-blue-500"></i>
+            </button>
+            <!-- Running apps -->
+        </div>
+        <div class="flex items-center gap-3 text-xs pr-2" id="taskbar-right">
+            <div id="taskbar-tray" class="flex items-center gap-3 px-2 hover:bg-white/20 rounded py-1 cursor-pointer transition-colors">
+                <i class="fas fa-wifi"></i>
+                <i class="fas fa-volume-up"></i>
+                <i class="fas fa-battery-full"></i>
+            </div>
+            <div class="text-right hover:bg-white/20 px-2 py-1 rounded cursor-pointer transition-colors" onclick="Apps.settings.open()">
+                <div id="clock-time" class="font-semibold">12:00 PM</div>
+                <div id="clock-date">10/24/2025</div>
+            </div>
+        </div>
+    </div>
+
+<script>
+    // --- UTILITIES ---
+    const generateId = () => Math.random().toString(36).substr(2, 9);
+    const getEl = (id) => document.getElementById(id);
+
+    // --- SYSTEM STATE ---
+    const System = {
+        settings: {
+            theme: 'light',
+            taskbarPos: 'bottom', // bottom, top, left, right
+            startAlign: 'center', // left, center, right
+            wallpaper: 'default'
+        },
+        clipboard: null,
+        processes: [],
+        windows: [],
+        zIndexCounter: 100,
+        triggerBSOD(code = 'CRITICAL_PROCESS_DIED') {
+            const el = document.getElementById('bsod-screen');
+            const codeEl = document.getElementById('bsod-code');
+            const percentEl = document.getElementById('bsod-percent');
+            
+            codeEl.innerText = code;
+            el.classList.remove('hidden');
+            
+            // Play horrible sound
+            try {
+                const ctx = new (window.AudioContext || window.webkitAudioContext)();
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+                osc.connect(gain);
+                gain.connect(ctx.destination);
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(100, ctx.currentTime);
+                osc.frequency.linearRampToValueAtTime(50, ctx.currentTime + 0.5);
+                gain.gain.setValueAtTime(0.5, ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.5);
+                osc.start();
+                osc.stop(ctx.currentTime + 0.5);
+            } catch(e){}
+
+            let p = 0;
+            const int = setInterval(() => {
+                p += Math.floor(Math.random() * 15);
+                if(p >= 100) {
+                    p = 100;
+                    clearInterval(int);
+                    setTimeout(() => window.location.reload(), 1500);
+                }
+                percentEl.innerText = p;
+            }, 800);
+        }
+    };
+
+    // --- FILE SYSTEM ---
+    class VirtualFile {
+        constructor(name, type, content = "", parentId = "desktop") {
+            this.id = generateId();
+            this.name = name;
+            this.type = type; // folder, txt, img, zip, trash
+            this.content = content;
+            this.parentId = parentId;
+            this.date = new Date().toLocaleString();
+        }
+    }
+
+    const FileSystem = {
+        files: [],
+        
+        init() {
+            this.createFile("Welcome.txt", "txt", "Welcome to Windows 12 Web Edition!\n\nUse the Start Menu to open apps.", "desktop");
+            this.createFile("My Projects", "folder", null, "desktop");
+            this.createFile("Recycle Bin", "trash", null, "desktop");
+            this.createFile("Secret Plans.zip", "zip", "[]", "desktop");
+            
+            const projectsFolder = this.files.find(f => f.name === "My Projects");
+            this.createFile("Idea.txt", "txt", "Make a web OS.", projectsFolder.id);
+            
+            this.renderDesktop();
+        },
+
+        createFile(name, type, content, parentId) {
+            const file = new VirtualFile(name, type, content, parentId);
+            this.files.push(file);
+            return file;
+        },
+
+        deleteFile(id) {
+            const file = this.files.find(f => f.id === id);
+            if (!file) return;
+            
+            if (file.type === 'trash') {
+                this.files = this.files.filter(f => f.parentId !== file.id);
+                alert("Recycle Bin Emptied");
+                return;
+            }
+
+            const trash = this.files.find(f => f.type === 'trash');
+            if (file.parentId === trash.id) {
+                this.files = this.files.filter(f => f.id !== id);
+                this.files = this.files.filter(f => f.parentId !== id); 
+            } else {
+                file.parentId = trash.id;
+            }
+            this.renderDesktop();
+        },
+
+        getFiles(parentId) {
+            return this.files.filter(f => f.parentId === parentId);
+        },
+
+        renderDesktop() {
+            const container = getEl('desktop-icons');
+            container.innerHTML = '';
+            const files = this.getFiles('desktop');
+            
+            files.forEach(file => {
+                const el = document.createElement('div');
+                el.className = 'w-24 h-24 flex flex-col items-center justify-center p-2 rounded hover:bg-white/20 cursor-pointer text-shadow text-white group transition-colors duration-200';
+                el.setAttribute('draggable', 'true');
+                el.innerHTML = `
+                    <div class="text-4xl mb-2 drop-shadow-md filter transition-transform group-hover:scale-105">
+                        ${this.getIcon(file.type)}
+                    </div>
+                    <div class="text-xs text-center break-words leading-tight px-2 py-0.5 rounded group-hover:bg-black/30 line-clamp-2">${file.name}</div>
+                `;
+                
+                el.ondblclick = () => OS.openFile(file);
+                el.ondragstart = (e) => this.handleDragStart(e, file);
+                el.ondrop = (e) => this.handleDrop(e, file);
+                el.ondragover = (e) => e.preventDefault();
+                
+                container.appendChild(el);
+            });
+            
+            container.ondragover = (e) => e.preventDefault();
+            container.ondrop = (e) => this.handleDrop(e, { id: 'desktop', type: 'folder' });
+        },
+
+        getIcon(type) {
+            const icons = {
+                'folder': '<i class="fas fa-folder text-yellow-400"></i>',
+                'txt': '<i class="fas fa-file-alt text-gray-200"></i>',
+                'img': '<i class="fas fa-image text-purple-400"></i>',
+                'zip': '<i class="fas fa-file-archive text-yellow-600"></i>',
+                'trash': '<i class="fas fa-trash-alt text-gray-300"></i>',
+                'app': '<i class="fab fa-windows text-blue-400"></i>',
+                'py': '<i class="fab fa-python text-blue-300"></i>',
+                'mp3': '<i class="fas fa-music text-pink-500"></i>'
+            };
+            return icons[type] || '<i class="fas fa-file"></i>';
+        },
+        
+        handleDragStart(e, file) {
+            e.dataTransfer.setData('text/plain', file.id);
+        },
+        
+        handleDrop(e, targetFile) {
+            e.preventDefault();
+            e.stopPropagation();
+            const draggedId = e.dataTransfer.getData('text/plain');
+            const draggedFile = this.files.find(f => f.id === draggedId);
+            
+            if (!draggedFile || !targetFile) return;
+            if (draggedFile.id === targetFile.id) return;
+            
+            if (['folder', 'zip', 'trash'].includes(targetFile.type)) {
+                draggedFile.parentId = targetFile.id;
+                this.renderDesktop();
+                WindowManager.refreshWindows();
+            } else if (targetFile.id === 'desktop') {
+                draggedFile.parentId = 'desktop';
+                this.renderDesktop();
+                WindowManager.refreshWindows();
+            }
+        },
+
+        clearSelection() {
+            // Logic to clear selected icons
+        }
+    };
+
+    // --- WINDOW MANAGER ---
+    const WindowManager = {
+        open(appId, title, contentFn, options = {}) {
+            const id = generateId();
+            const win = document.createElement('div');
+            
+            const isDark = System.settings.theme === 'dark';
+            const bgClass = isDark ? 'glass-dark' : 'glass';
+            const textClass = isDark ? 'text-white' : 'text-gray-800';
+
+            win.className = `absolute flex flex-col rounded-lg shadow-2xl overflow-hidden window-opening pointer-events-auto ${bgClass} ${textClass}`;
+            win.style.width = options.width || '600px';
+            win.style.height = options.height || '400px';
+            win.style.top = '10%';
+            win.style.left = '10%';
+            win.style.zIndex = ++System.zIndexCounter;
+            win.id = id;
+
+            const content = contentFn(id);
+            
+            win.innerHTML = `
+                <div class="h-9 flex items-center justify-between px-3 bg-white/10 select-none cursor-default backdrop-blur-sm" onmousedown="WindowManager.startDrag(event, '${id}')">
+                    <div class="flex items-center gap-2 text-sm font-medium">
+                        ${options.icon || '<i class="fas fa-window-maximize"></i>'}
+                        <span>${title}</span>
+                    </div>
+                    <div class="flex items-center gap-1">
+                        <button class="hover:bg-white/20 w-8 h-8 rounded flex items-center justify-center transition-colors" onclick="WindowManager.minimize('${id}')"><i class="fas fa-minus text-xs"></i></button>
+                        <button class="hover:bg-white/20 w-8 h-8 rounded flex items-center justify-center transition-colors" onclick="WindowManager.maximize('${id}')"><i class="far fa-square text-xs"></i></button>
+                        <button class="hover:bg-red-500 hover:text-white w-8 h-8 rounded flex items-center justify-center transition-colors" onclick="WindowManager.close('${id}')"><i class="fas fa-times text-xs"></i></button>
+                    </div>
+                </div>
+                <div class="flex-1 overflow-auto relative content-area bg-white/50 backdrop-blur-sm">
+                    ${content}
+                </div>
+                <div class="absolute bottom-0 right-0 w-4 h-4 cursor-se-resize z-20" onmousedown="WindowManager.startResize(event, '${id}')"></div>
+            `;
+
+            getEl('window-layer').appendChild(win);
+            
+            requestAnimationFrame(() => {
+                win.classList.remove('window-opening');
+                win.classList.add('window-open');
+            });
+
+            System.windows.push({ id, appId, element: win });
+            OS.updateTaskbar();
+            
+            win.onmousedown = () => {
+                win.style.zIndex = ++System.zIndexCounter;
+            };
+            
+            return id;
+        },
+
+        close(id) {
+            const win = getEl(id);
+            if (win) {
+                win.classList.remove('window-open');
+                win.classList.add('window-opening');
+                setTimeout(() => {
+                    win.remove();
+                    System.windows = System.windows.filter(w => w.id !== id);
+                    OS.updateTaskbar();
+                }, 200);
+            }
+        },
+
+        minimize(id) {
+            const win = getEl(id);
+            win.style.display = 'none';
+            OS.updateTaskbar(); // Force redraw to show state if needed
+        },
+        
+        restore(id) {
+            const win = getEl(id);
+            win.style.display = 'flex';
+            win.style.zIndex = ++System.zIndexCounter;
+        },
+
+        maximize(id) {
+            const win = getEl(id);
+            if (win.style.width === '100%') {
+                win.style.width = win.dataset.prevWidth || '600px';
+                win.style.height = win.dataset.prevHeight || '400px';
+                win.style.top = win.dataset.prevTop || '10%';
+                win.style.left = win.dataset.prevLeft || '10%';
+                win.classList.add('rounded-lg');
+            } else {
+                win.dataset.prevWidth = win.style.width;
+                win.dataset.prevHeight = win.style.height;
+                win.dataset.prevTop = win.style.top;
+                win.dataset.prevLeft = win.style.left;
+                
+                win.style.width = '100%';
+                win.style.height = '100%';
+                win.style.top = '0';
+                win.style.left = '0';
+                win.classList.remove('rounded-lg');
+            }
+        },
+
+        startDrag(e, id) {
+            if(e.target.tagName === 'BUTTON') return;
+            const win = getEl(id);
+            let shiftX = e.clientX - win.getBoundingClientRect().left;
+            let shiftY = e.clientY - win.getBoundingClientRect().top;
+
+            function moveAt(pageX, pageY) {
+                win.style.left = pageX - shiftX + 'px';
+                win.style.top = pageY - shiftY + 'px';
+            }
+
+            function onMouseMove(event) {
+                moveAt(event.pageX, event.pageY);
+            }
+
+            document.addEventListener('mousemove', onMouseMove);
+
+            document.onmouseup = function() {
+                document.removeEventListener('mousemove', onMouseMove);
+                document.onmouseup = null;
+            };
+        },
+        
+        startResize(e, id) {
+            const win = getEl(id);
+            e.stopPropagation();
+            
+            function onMouseMove(e) {
+                win.style.width = (e.pageX - win.getBoundingClientRect().left) + 'px';
+                win.style.height = (e.pageY - win.getBoundingClientRect().top) + 'px';
+            }
+            
+            document.addEventListener('mousemove', onMouseMove);
+            document.onmouseup = () => {
+                document.removeEventListener('mousemove', onMouseMove);
+                document.onmouseup = null;
+            };
+        },
+        
+        refreshWindows() {
+            System.windows.forEach(w => {
+                if(w.appId === 'explorer') {
+                    const contentDiv = w.element.querySelector('.content-area > div');
+                    if(!contentDiv) return;
+                    const currentPath = contentDiv.dataset.path;
+                    if(currentPath) Apps.explorer.refresh(w.element.querySelector('.grid'), w.element, currentPath);
+                }
+            });
+        },
+
+        showError(title, msg, x = null, y = null) {
+            const win = document.createElement('div');
+            win.className = 'absolute z-[9999] bg-[#f0f0f0] border border-[#999] shadow-xl flex flex-col w-96 select-none font-[Tahoma,sans-serif] animate-bounce';
+            
+            if (x === null) x = (window.innerWidth / 2) - 192 + (Math.random() * 40 - 20);
+            if (y === null) y = (window.innerHeight / 2) - 80 + (Math.random() * 40 - 20);
+            
+            win.style.left = Math.max(0, Math.min(window.innerWidth - 384, x)) + 'px';
+            win.style.top = Math.max(0, Math.min(window.innerHeight - 160, y)) + 'px';
+            
+            win.innerHTML = `
+                <div class="flex justify-between items-center px-2 py-1 bg-white border-b border-[#ccc] bg-gradient-to-r from-[#fff] to-[#e0e0e0]">
+                    <span class="text-xs text-black">${title}</span>
+                    <button class="text-xs px-2 py-0.5 hover:bg-red-500 hover:text-white border border-transparent rounded hover:border-red-600 transition-colors" onclick="this.closest('.absolute').remove()">✕</button>
+                </div>
+                <div class="p-4 flex gap-4 items-start">
+                    <div class="text-3xl text-red-600"><i class="fas fa-times-circle"></i></div>
+                    <div class="flex-1">
+                        <div class="text-xs text-black mb-4 leading-relaxed">${msg}</div>
+                    </div>
+                </div>
+                <div class="p-2 bg-[#f0f0f0] flex justify-end border-t border-[#ccc]">
+                    <button class="px-6 py-1 text-xs border border-[#888] bg-[#e1e1e1] hover:bg-[#e5f1fb] hover:border-[#0078d7] active:bg-[#cce4f7] min-w-[80px]" onclick="this.closest('.absolute').remove()">OK</button>
+                </div>
+            `;
+            
+            document.body.appendChild(win);
+            
+            // Play beep
+            try {
+                const ctx = new (window.AudioContext || window.webkitAudioContext)();
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+                osc.connect(gain);
+                gain.connect(ctx.destination);
+                osc.type = 'sawtooth';
+                osc.frequency.value = 150;
+                gain.gain.value = 0.1;
+                osc.start();
+                gain.gain.exponentialRampToValueAtTime(0.00001, ctx.currentTime + 0.5);
+                osc.stop(ctx.currentTime + 0.5);
+            } catch(e) {}
+        }
+    };
+
+    // --- APPS & OS LOGIC ---
+    const Apps = {
+        'explorer': {
+            title: 'File Explorer',
+            icon: '<i class="fas fa-folder text-yellow-400"></i>',
+            open: (path = 'desktop') => {
+                let extraControls = '';
+                const trashFolder = FileSystem.files.find(f => f.type === 'trash');
+                if (path === trashFolder?.id) {
+                    extraControls = `<button onclick="FileSystem.files = FileSystem.files.filter(f => f.parentId !== '${trashFolder.id}'); FileSystem.renderDesktop(); WindowManager.refreshWindows();" class="bg-red-500 text-white px-2 py-0.5 rounded text-xs ml-2 hover:bg-red-600">Empty Bin</button>`;
+                }
+
+                WindowManager.open('explorer', 'File Explorer', (winId) => `
+                    <div class="flex flex-col h-full bg-white/80" data-path="${path}">
+                        <div class="bg-white/50 p-2 flex items-center gap-2 text-sm border-b border-gray-200">
+                            <button onclick="Apps.explorer.goUp('${winId}')" class="hover:bg-gray-200 p-1 rounded"><i class="fas fa-arrow-up text-gray-600"></i></button>
+                            <div class="flex-1 bg-white border border-gray-300 px-2 py-1 rounded text-xs flex items-center">
+                                <i class="fas fa-laptop mr-2 text-gray-400"></i>
+                                <span>${path === 'desktop' ? 'This PC' : path}</span>
+                            </div>
+                            ${extraControls}
+                            <div class="relative">
+                                <i class="fas fa-search absolute left-2 top-1.5 text-gray-400 text-xs"></i>
+                                <input type="text" placeholder="Search" class="w-40 bg-white border border-gray-300 pl-6 pr-2 py-1 rounded text-xs outline-none focus:border-blue-500" oninput="Apps.explorer.search('${winId}', this.value)">
+                            </div>
+                        </div>
+                        <div class="flex-1 p-2 grid grid-cols-4 gap-2 content-start overflow-auto" id="explorer-content-${winId}">
+                            ${Apps.explorer.renderContent(path)}
+                        </div>
+                        <div class="h-6 bg-gray-100 border-t border-gray-200 text-xs flex items-center px-2 text-gray-600">
+                            <span id="explorer-count-${winId}">${FileSystem.getFiles(path).length} items</span>
+                        </div>
+                    </div>
+                `, { width: '640px', height: '480px', icon: '<i class="fas fa-folder text-yellow-400"></i>' });
+            },
+            renderContent: (path) => {
+                const files = FileSystem.getFiles(path);
+                if (files.length === 0) return '<div class="col-span-4 text-center text-gray-500 mt-10 text-sm">Folder is empty</div>';
+                return files.map(f => `
+                    <div class="flex flex-col items-center justify-center p-2 hover:bg-blue-100 rounded cursor-pointer group" 
+                         ondblclick="OS.openFile({id: '${f.id}', type: '${f.type}', name: '${f.name}'})"
+                         draggable="true" ondragstart="FileSystem.handleDragStart(event, {id:'${f.id}'})">
+                        <div class="text-3xl mb-1 transition-transform group-hover:scale-105">${FileSystem.getIcon(f.type)}</div>
+                        <div class="text-xs text-center truncate w-full text-gray-700 group-hover:text-black">${f.name}</div>
+                    </div>
+                `).join('');
+            },
+            refresh: (container, winEl, path) => {
+                 container.innerHTML = Apps.explorer.renderContent(path);
+                 winEl.querySelector('[data-path]').dataset.path = path;
+                 const winId = winEl.id;
+                 const countEl = getEl('explorer-count-' + winId);
+                 if(countEl) countEl.innerText = `${FileSystem.getFiles(path).length} items`;
+            },
+            goUp: (winId) => {
+                const win = getEl(winId);
+                const container = win.querySelector('.grid'); // Fixed selector
+                const contentDiv = win.querySelector('[data-path]');
+                const currentId = contentDiv.dataset.path;
+                
+                if(currentId === 'desktop') return;
+                
+                const currentFolder = FileSystem.files.find(f => f.id === currentId);
+                const parentId = currentFolder ? currentFolder.parentId : 'desktop';
+                Apps.explorer.refresh(container, win, parentId);
+            },
+            search: (winId, query) => {
+                const win = getEl(winId);
+                const container = win.querySelector('.grid');
+                const currentPath = win.querySelector('[data-path]').dataset.path;
+                
+                if(!query) {
+                    Apps.explorer.refresh(container, win, currentPath);
+                    return;
+                }
+                const allFiles = FileSystem.files.filter(f => f.parentId === currentPath && f.name.toLowerCase().includes(query.toLowerCase()));
+                
+                container.innerHTML = allFiles.map(f => `
+                    <div class="flex flex-col items-center justify-center p-2 hover:bg-blue-100 rounded cursor-pointer" 
+                         ondblclick="OS.openFile({id: '${f.id}', type: '${f.type}', name: '${f.name}'})">
+                        <div class="text-3xl">${FileSystem.getIcon(f.type)}</div>
+                        <div class="text-xs text-center truncate w-full mt-1">${f.name}</div>
+                    </div>
+                `).join('');
+            }
+        },
+        'notepad': {
+            title: 'Notepad',
+            icon: '<i class="fas fa-sticky-note text-yellow-300"></i>',
+            open: (fileId) => {
+                const file = FileSystem.files.find(f => f.id === fileId);
+                const content = file ? file.content : '';
+                const title = file ? file.name : 'Untitled.txt';
+                
+                WindowManager.open('notepad', title, (winId) => `
+                    <div class="flex flex-col h-full bg-white text-black">
+                        <div class="flex items-center gap-2 p-2 bg-gray-50 border-b">
+                            <select onchange="document.getElementById('editor-${winId}').style.fontFamily = this.value" class="text-xs border rounded p-1">
+                                <option value="monospace">Monospace</option>
+                                <option value="sans-serif">Sans-serif</option>
+                                <option value="serif">Serif</option>
+                            </select>
+                            <input type="number" value="14" class="w-14 text-xs border rounded p-1" onchange="document.getElementById('editor-${winId}').style.fontSize = this.value + 'px'">
+                            <input type="color" onchange="document.getElementById('editor-${winId}').style.color = this.value" class="h-6 w-6 p-0 border-0 cursor-pointer">
+                            <div class="flex-1"></div>
+                            <button class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 text-xs rounded transition-colors" onclick="Apps.notepad.save('${winId}', '${fileId}')">Save</button>
+                        </div>
+                        <textarea id="editor-${winId}" class="flex-1 p-4 outline-none resize-none font-mono text-sm leading-relaxed">${content}</textarea>
+                    </div>
+                `, { width: '500px', height: '400px', icon: '<i class="fas fa-sticky-note text-yellow-300"></i>' });
+            },
+            save: (winId, fileId) => {
+                const content = getEl(`editor-${winId}`).value;
+                if (fileId && fileId !== 'undefined') {
+                    const file = FileSystem.files.find(f => f.id === fileId);
+                    if (file) file.content = content;
+                    alert('Saved!');
+                } else {
+                    FileSystem.createFile('Untitled.txt', 'txt', content, 'desktop');
+                    FileSystem.renderDesktop();
+                    alert('Saved to Desktop');
+                }
+            }
+        },
+        'paint': {
+            title: 'Paint',
+            icon: '<i class="fas fa-palette text-purple-400"></i>',
+            open: (fileId) => {
+                WindowManager.open('paint', 'Paint', (winId) => `
+                    <div class="flex flex-col h-full bg-gray-100">
+                        <div class="flex items-center gap-3 p-2 bg-white border-b shadow-sm z-10">
+                            <div class="flex bg-gray-100 rounded p-1">
+                                <button class="p-1.5 rounded hover:bg-gray-300 active:bg-blue-100 active:text-blue-600" onclick="Apps.paint.setTool('${winId}', 'brush')"><i class="fas fa-paint-brush"></i></button>
+                                <button class="p-1.5 rounded hover:bg-gray-300 active:bg-blue-100 active:text-blue-600" onclick="Apps.paint.setTool('${winId}', 'eraser')"><i class="fas fa-eraser"></i></button>
+                            </div>
+                            <input type="color" id="paint-color-${winId}" value="#000000" class="h-8 w-8 rounded cursor-pointer border-0">
+                            <div class="flex items-center gap-1">
+                                <span class="text-xs text-gray-500">Size:</span>
+                                <input type="range" id="paint-size-${winId}" min="1" max="20" value="5" class="w-24 accent-blue-500">
+                            </div>
+                            <div class="flex-1"></div>
+                            <button class="bg-red-500 hover:bg-red-600 text-white px-3 py-1 text-xs rounded transition-colors" onclick="Apps.paint.clear('${winId}')">Clear</button>
+                        </div>
+                        <div class="flex-1 overflow-auto relative cursor-crosshair bg-gray-200 flex items-center justify-center p-4">
+                            <canvas id="canvas-${winId}" width="800" height="600" class="bg-white shadow-lg"></canvas>
+                        </div>
+                    </div>
+                `, { width: '800px', height: '600px', icon: '<i class="fas fa-palette text-purple-400"></i>' });
+                
+                setTimeout(() => Apps.paint.initCanvas(fileId), 100);
+            },
+            initCanvas: (fileId) => {
+                const wins = System.windows.filter(w => w.appId === 'paint');
+                const win = wins[wins.length - 1];
+                if(!win) return;
+                const winId = win.id;
+                
+                const canvas = getEl(`canvas-${winId}`);
+                const ctx = canvas.getContext('2d');
+                let painting = false;
+                let tool = 'brush';
+
+                if(fileId) {
+                     const file = FileSystem.files.find(f => f.id === fileId);
+                     if(file && file.content && file.content.startsWith('data:image')) {
+                         const img = new Image();
+                         img.onload = () => ctx.drawImage(img, 0, 0);
+                         img.src = file.content;
+                     }
+                }
+
+                function startPosition(e) {
+                    painting = true;
+                    draw(e);
+                }
+                function finishedPosition() {
+                    painting = false;
+                    ctx.beginPath();
+                }
+                function draw(e) {
+                    if (!painting) return;
+                    const rect = canvas.getBoundingClientRect();
+                    const x = e.clientX - rect.left;
+                    const y = e.clientY - rect.top;
+                    
+                    ctx.lineWidth = getEl(`paint-size-${winId}`).value;
+                    ctx.lineCap = 'round';
+                    
+                    if (tool === 'eraser') {
+                        ctx.strokeStyle = '#FFFFFF';
+                    } else {
+                        ctx.strokeStyle = getEl(`paint-color-${winId}`).value;
+                    }
+
+                    ctx.lineTo(x, y);
+                    ctx.stroke();
+                    ctx.beginPath();
+                    ctx.moveTo(x, y);
+                }
+
+                canvas.addEventListener('mousedown', startPosition);
+                canvas.addEventListener('mouseup', finishedPosition);
+                canvas.addEventListener('mousemove', draw);
+                canvas.addEventListener('mouseleave', finishedPosition);
+                
+                Apps.paint.setTool = (wId, t) => { tool = t; };
+                Apps.paint.clear = (wId) => { ctx.clearRect(0,0, canvas.width, canvas.height); };
+            }
+        },
+        'settings': {
+            title: 'Settings',
+            icon: '<i class="fas fa-cog text-gray-400"></i>',
+            open: () => {
+                WindowManager.open('settings', 'Settings', (id) => `
+                    <div class="p-6 flex flex-col gap-6 bg-white/90 h-full">
+                        <div class="bg-gray-100 p-4 rounded-xl shadow-sm">
+                            <h3 class="font-bold mb-3 text-lg border-b pb-2">Personalization</h3>
+                            <div class="flex items-center justify-between mb-4">
+                                <span class="font-medium">Theme Mode</span>
+                                <button class="bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded-lg text-white text-sm transition-colors shadow-sm" onclick="OS.toggleTheme()">Toggle Dark/Light</button>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="font-medium">Desktop Wallpaper</span>
+                                <button class="bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded-lg text-white text-sm transition-colors shadow-sm" onclick="OS.changeWallpaper()">Switch Wallpaper</button>
+                            </div>
+                        </div>
+                        <div class="bg-gray-100 p-4 rounded-xl shadow-sm">
+                            <h3 class="font-bold mb-3 text-lg border-b pb-2">Taskbar & Start</h3>
+                            <div class="flex items-center justify-between mb-4">
+                                <span class="font-medium">Taskbar Position</span>
+                                <select onchange="OS.setTaskbarPos(this.value)" class="bg-white border border-gray-300 rounded-lg px-3 py-1 text-sm text-gray-700 outline-none focus:ring-2 focus:ring-blue-500">
+                                    <option value="bottom">Bottom</option>
+                                    <option value="top">Top</option>
+                                    <option value="left">Left</option>
+                                    <option value="right">Right</option>
+                                </select>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="font-medium">Start Menu Alignment</span>
+                                <select onchange="OS.setStartAlign(this.value)" class="bg-white border border-gray-300 rounded-lg px-3 py-1 text-sm text-gray-700 outline-none focus:ring-2 focus:ring-blue-500">
+                                    <option value="center">Center</option>
+                                    <option value="left">Left</option>
+                                    <option value="right">Right</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                `, { width: '550px', height: '450px', icon: '<i class="fas fa-cog"></i>' });
+            }
+        },
+        'python': {
+            title: 'Python IDE',
+            icon: '<i class="fab fa-python text-blue-300"></i>',
+            open: (fileId) => {
+                const file = FileSystem.files.find(f => f.id === fileId);
+                const content = file ? file.content : 'print("Hello Windows 12 Web!")\\nx = 42\\nif x > 20:\\n    print(f"X is {x}, which is large")';
+                const title = file ? file.name : 'Untitled.py';
+                
+                WindowManager.open('python', title, (id) => `
+                    <div class="flex flex-col h-full bg-gray-900 text-white">
+                        <div class="bg-gray-800 p-2 flex gap-3 items-center border-b border-gray-700">
+                            <button class="bg-blue-600 hover:bg-blue-500 px-3 py-1 rounded text-xs flex items-center gap-1 transition-colors" onclick="Apps.python.save('${id}', '${fileId}')"><i class="fas fa-save"></i> Save</button>
+                            <button class="bg-green-600 hover:bg-green-500 px-3 py-1 rounded text-xs flex items-center gap-1 transition-colors" onclick="Apps.python.run('${id}')"><i class="fas fa-play"></i> Run Script</button>
+                            <span class="text-xs text-gray-400">Python 3.10 (Simulated)</span>
+                        </div>
+                        <textarea id="py-code-${id}" class="flex-1 bg-gray-900 p-4 font-mono text-sm outline-none resize-none text-gray-100 leading-relaxed" spellcheck="false">${content}</textarea>
+                        <div class="h-32 bg-black p-3 font-mono text-xs overflow-auto border-t border-gray-700" id="py-out-${id}">
+                            <div class="text-gray-500 mb-1">>>> Console Ready</div>
+                        </div>
+                    </div>
+                `, { width: '600px', height: '500px', icon: '<i class="fab fa-python text-blue-300"></i>' });
+            },
+            save: (id, fileId) => {
+                const content = getEl(`py-code-${id}`).value;
+                if (fileId && fileId !== 'undefined') {
+                    const file = FileSystem.files.find(f => f.id === fileId);
+                    if (file) file.content = content;
+                    alert('Saved!');
+                } else {
+                    const name = `Script_${Date.now()}.py`;
+                    FileSystem.createFile(name, 'py', content, 'desktop');
+                    FileSystem.renderDesktop();
+                    alert(`Saved as ${name} on Desktop`);
+                }
+            },
+            run: (id) => {
+                const code = getEl(`py-code-${id}`).value;
+                const out = getEl(`py-out-${id}`);
+                out.innerHTML = '<div class="text-yellow-500">Running...</div>';
+                
+                try {
+                    let logs = [];
+                    const print = (msg) => logs.push(msg);
+                    
+                    let jsCode = code
+                        .replace(/print\\((.*)\\)/g, 'print($1)')
+                        .replace(/def (.*):/g, 'function $1 {')
+                        .replace(/if (.*):/g, 'if ($1) {')
+                        .replace(/else:/g, 'else {')
+                        .replace(/elif (.*):/g, 'else if ($1) {')
+                        .replace(/for (.*) in range\\((.*)\\):/g, 'for(let $1=0; $1<$2; $1++) {')
+                        .replace(/f"(.*)\\{(.*)\\}(.*)"/g, '\`$1\${$2}$3\`');
+                        
+                    eval(jsCode); 
+                    out.innerHTML = logs.map(l => `<div class="text-white">\${l}</div>`).join('');
+                    out.innerHTML += '<div class="text-green-500 mt-1">>>> Finished</div>';
+                } catch (e) {
+                    out.innerHTML += `<div class="text-red-500">\${e.message}<br><span class="text-xs opacity-50">Syntax Error (Simulated)</span></div>`;
+                }
+            }
+        },
+        'games': {
+            title: 'Game Center',
+            snake: () => {
+                WindowManager.open('snake', 'Snake', (id) => `
+                    <div class="bg-gray-800 h-full flex items-center justify-center flex-col">
+                        <canvas id="snake-canvas-${id}" width="400" height="400" class="bg-black border-4 border-gray-700 shadow-xl"></canvas>
+                        <div class="text-gray-400 text-xs mt-4">Use Arrow Keys to Move</div>
+                    </div>
+                `, { width: '440px', height: '520px', icon: '<i class="fas fa-gamepad text-green-400"></i>' });
+                setTimeout(Apps.games.initSnake, 100);
+            },
+            initSnake: () => {
+                const canvas = document.querySelector('canvas[id^="snake-canvas-"]');
+                if(!canvas) return;
+                const ctx = canvas.getContext('2d');
+                let snake = [{x: 10, y: 10}];
+                let food = {x: 15, y: 15};
+                let dx = 1, dy = 0;
+                
+                function loop() {
+                    if(!canvas.closest('.window-open')) return;
+                    
+                    const head = {x: snake[0].x + dx, y: snake[0].y + dy};
+                    snake.unshift(head);
+                    
+                    if(head.x === food.x && head.y === food.y) {
+                        food = {x: Math.floor(Math.random()*20), y: Math.floor(Math.random()*20)};
+                    } else {
+                        snake.pop();
+                    }
+                    
+                    if(head.x < 0 || head.x >= 20 || head.y < 0 || head.y >= 20) snake = [{x: 10, y: 10}];
+                    
+                    ctx.fillStyle = '#111';
+                    ctx.fillRect(0, 0, 400, 400);
+                    ctx.fillStyle = '#4ade80';
+                    snake.forEach(p => ctx.fillRect(p.x*20, p.y*20, 18, 18));
+                    ctx.fillStyle = '#ef4444';
+                    ctx.fillRect(food.x*20, food.y*20, 18, 18);
+                    
+                    setTimeout(() => requestAnimationFrame(loop), 100);
+                }
+                
+                document.addEventListener('keydown', e => {
+                    if(e.key === 'ArrowUp' && dy !== 1) { dx=0; dy=-1; }
+                    if(e.key === 'ArrowDown' && dy !== -1) { dx=0; dy=1; }
+                    if(e.key === 'ArrowLeft' && dx !== 1) { dx=-1; dy=0; }
+                    if(e.key === 'ArrowRight' && dx !== -1) { dx=1; dy=0; }
+                });
+                loop();
+            },
+            clicker: () => {
+                WindowManager.open('clicker', 'Cookie Clicker', (id) => `
+                    <div class="flex flex-col h-full items-center justify-center bg-blue-50 gap-6">
+                        <div class="text-6xl font-bold text-blue-800 drop-shadow-md" id="score-${id}">0</div>
+                        <button class="w-40 h-40 rounded-full bg-amber-400 border-4 border-amber-600 shadow-2xl active:scale-95 transition-transform flex items-center justify-center text-5xl hover:brightness-110" onclick="Apps.games.handleClick('${id}')">🍪</button>
+                        <div class="text-sm text-gray-500 font-medium uppercase tracking-wide">Click the cookie!</div>
+                    </div>
+                `, { width: '350px', height: '450px', icon: '<i class="fas fa-mouse-pointer text-yellow-500"></i>' });
+            },
+            handleClick: (id) => {
+                const el = getEl(`score-${id}`);
+                el.innerText = parseInt(el.innerText) + 1;
+            },
+            minecraft: () => {
+                WindowManager.open('minecraft', 'Minecraft Lite', (id) => `
+                    <div class="flex flex-col h-full bg-gray-900">
+                        <div class="p-2 bg-gray-800 flex gap-2 justify-center border-b border-gray-700">
+                            <div class="w-8 h-8 bg-red-500 cursor-pointer border-2 border-white hover:scale-110 transition-transform shadow-lg" onclick="Apps.games.setBlock('red')"></div>
+                            <div class="w-8 h-8 bg-green-500 cursor-pointer hover:scale-110 transition-transform shadow-lg" onclick="Apps.games.setBlock('green')"></div>
+                            <div class="w-8 h-8 bg-blue-500 cursor-pointer hover:scale-110 transition-transform shadow-lg" onclick="Apps.games.setBlock('blue')"></div>
+                            <div class="w-8 h-8 bg-[#5d4037] cursor-pointer hover:scale-110 transition-transform shadow-lg" onclick="Apps.games.setBlock('#5d4037')"></div>
+                            <div class="w-8 h-8 bg-gray-400 cursor-pointer hover:scale-110 transition-transform shadow-lg" onclick="Apps.games.setBlock('#9ca3af')"></div>
+                        </div>
+                        <div class="flex-1 relative overflow-hidden bg-sky-300 cursor-cell" id="mc-world-${id}" onclick="Apps.games.placeBlock(event)">
+                            <div class="absolute bottom-0 w-full h-12 bg-green-700 border-t-4 border-green-800"></div>
+                            <div class="absolute top-10 right-10 w-16 h-16 bg-yellow-300 rounded-full blur-sm opacity-80"></div>
+                        </div>
+                    </div>
+                `, { width: '600px', height: '400px', icon: '<i class="fas fa-cube text-green-700"></i>' });
+                Apps.games.selectedColor = '#5d4037';
+            },
+            setBlock: (color) => { Apps.games.selectedColor = color; },
+            placeBlock: (e) => {
+                const world = e.target.closest('[id^="mc-world-"]');
+                if(e.target !== world && !e.target.classList.contains('block')) return;
+                
+                const rect = world.getBoundingClientRect();
+                const x = e.clientX - rect.left;
+                const y = e.clientY - rect.top;
+                
+                const block = document.createElement('div');
+                block.className = 'block absolute w-8 h-8 border border-black/10 shadow-sm';
+                block.style.backgroundColor = Apps.games.selectedColor;
+                block.style.left = (Math.floor(x/32)*32) + 'px';
+                block.style.top = (Math.floor(y/32)*32) + 'px';
+                
+                world.appendChild(block);
+            }
+        },
+        'youtube': {
+            title: 'YouTube',
+            icon: '<i class="fab fa-youtube text-red-600"></i>',
+            open: () => {
+                WindowManager.open('youtube', 'YouTube', (id) => `
+                    <div class="flex flex-col h-full bg-white">
+                         <div class="p-3 bg-white flex items-center gap-4 border-b">
+                             <i class="fab fa-youtube text-red-600 text-2xl"></i>
+                             <div class="flex-1 max-w-lg mx-auto flex">
+                                 <input type="text" placeholder="Search" class="flex-1 border rounded-l-full px-4 py-1 bg-gray-100 outline-none focus:border-blue-400">
+                                 <button class="bg-gray-100 border border-l-0 rounded-r-full px-4 text-gray-600 hover:bg-gray-200"><i class="fas fa-search"></i></button>
+                             </div>
+                             <button class="bg-gray-100 p-2 rounded-full w-9 h-9 flex items-center justify-center hover:bg-gray-200"><i class="fas fa-video"></i></button>
+                         </div>
+                         <div class="flex-1 overflow-auto p-4 grid grid-cols-3 gap-6 bg-gray-50">
+                             ${[1,2,3,4,5,6].map(i => `
+                                 <div class="cursor-pointer group" onclick="Apps.youtube.play('${id}')">
+                                     <div class="aspect-video bg-gray-800 rounded-xl overflow-hidden relative shadow-sm group-hover:shadow-md transition-shadow">
+                                        <img src="https://picsum.photos/300/200?random=${i}" class="w-full h-full object-cover">
+                                        <div class="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 bg-black/40 text-white transition-opacity">
+                                            <i class="fas fa-play text-4xl drop-shadow-lg"></i>
+                                        </div>
+                                        <div class="absolute bottom-1 right-1 bg-black/80 text-white text-[10px] px-1 rounded">12:34</div>
+                                     </div>
+                                     <div class="font-bold mt-2 text-sm text-gray-800 line-clamp-2">Amazing Video Title That Is Very Interesting #${i}</div>
+                                     <div class="text-xs text-gray-500 mt-1">Channel Name • 1M views • 1 day ago</div>
+                                 </div>
+                             `).join('')}
+                         </div>
+                    </div>
+                `, { width: '850px', height: '550px', icon: '<i class="fab fa-youtube text-red-600"></i>' });
+            },
+            play: (id) => {
+                const win = getEl(id);
+                win.querySelector('.overflow-auto').innerHTML = `
+                    <div class="h-full bg-black flex flex-col">
+                        <iframe width="100%" height="100%" src="https://www.youtube.com/embed/jfKfPfyJRdk?autoplay=1" frameborder="0" allow="autoplay; encrypted-media" class="flex-1"></iframe>
+                        <div class="bg-white p-3 flex justify-between items-center">
+                             <div>
+                                 <div class="font-bold text-lg">lofi hip hop radio - beats to relax/study to</div>
+                                 <div class="text-xs text-gray-500">Lofi Girl • 50M subscribers</div>
+                             </div>
+                             <button class="bg-gray-200 hover:bg-gray-300 px-4 py-2 rounded-full text-sm font-medium" onclick="Apps.youtube.open()">Back to Home</button>
+                        </div>
+                    </div>
+                `;
+            }
+        },
+        'camera': {
+            title: 'Camera',
+            icon: '<i class="fas fa-camera text-blue-500"></i>',
+            open: () => {
+                WindowManager.open('camera', 'Camera', (id) => `
+                    <div class="h-full bg-black relative flex flex-col">
+                        <div class="flex-1 bg-gray-900 flex items-center justify-center overflow-hidden relative">
+                             <video id="cam-feed-${id}" class="h-full object-cover" autoplay playsinline></video>
+                             <canvas id="cam-canvas-${id}" class="hidden"></canvas>
+                             <div class="absolute top-2 left-2 text-white/50 text-xs font-mono">REC ●</div>
+                        </div>
+                        <div class="h-20 flex items-center justify-center gap-8 bg-black/80 absolute bottom-0 w-full backdrop-blur-sm">
+                            <button class="text-white hover:text-gray-300"><i class="fas fa-images text-xl"></i></button>
+                            <button class="w-14 h-14 rounded-full border-4 border-white bg-red-600 hover:bg-red-500 shadow-lg active:scale-95 transition-transform" onclick="Apps.camera.takePhoto('${id}')"></button>
+                            <button class="text-white hover:text-gray-300"><i class="fas fa-sync text-xl"></i></button>
+                        </div>
+                    </div>
+                `, { width: '600px', height: '450px', icon: '<i class="fas fa-camera text-blue-500"></i>' });
+                
+                const win = System.windows[System.windows.length-1];
+                const video = getEl(`cam-feed-${win.id}`);
+                
+                if(navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+                    navigator.mediaDevices.getUserMedia({ video: true })
+                        .then(stream => { video.srcObject = stream; })
+                        .catch(() => {
+                             video.parentElement.innerHTML = '<div class="text-white text-center opacity-50"><i class="fas fa-video-slash text-4xl mb-2"></i><br>Camera not accessible</div>';
+                        });
+                }
+            },
+            takePhoto: (id) => {
+                const video = getEl(`cam-feed-${id}`);
+                const canvas = getEl(`cam-canvas-${id}`);
+                
+                if (video && video.readyState === 4) {
+                    canvas.width = video.videoWidth;
+                    canvas.height = video.videoHeight;
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+                    
+                    const dataUrl = canvas.toDataURL('image/png');
+                    const fileName = `Photo_${Date.now()}.png`;
+                    
+                    FileSystem.createFile(fileName, 'img', dataUrl, 'desktop');
+                    FileSystem.renderDesktop();
+                    
+                    // Flash effect
+                    const flash = document.createElement('div');
+                    flash.className = 'absolute inset-0 bg-white z-50 transition-opacity duration-500 pointer-events-none';
+                    video.parentElement.appendChild(flash);
+                    setTimeout(() => {
+                        flash.classList.add('opacity-0');
+                        setTimeout(() => flash.remove(), 500);
+                    }, 50);
+                    
+                    alert(`Saved ${fileName} to Desktop`);
+                } else {
+                    // Fallback if no camera
+                    const fileName = `Photo_${Date.now()}.png`;
+                    // Create a dummy placeholder image
+                    const dummyCanvas = document.createElement('canvas');
+                    dummyCanvas.width = 640; dummyCanvas.height = 480;
+                    const dCtx = dummyCanvas.getContext('2d');
+                    dCtx.fillStyle = '#333'; dCtx.fillRect(0,0,640,480);
+                    dCtx.fillStyle = '#fff'; dCtx.font = '30px Arial'; dCtx.fillText('Camera Simulated', 200, 240);
+                    
+                    FileSystem.createFile(fileName, 'img', dummyCanvas.toDataURL(), 'desktop');
+                    FileSystem.renderDesktop();
+                    alert(`Saved ${fileName} to Desktop (Simulated)`);
+                }
+            }
+        },
+        'tv': {
+            title: 'TV',
+            icon: '<i class="fas fa-tv text-gray-500"></i>',
+            open: () => {
+                WindowManager.open('tv', 'TV Channels', (id) => `
+                    <div class="flex h-full bg-black text-white">
+                        <div class="w-48 bg-gray-900 overflow-auto border-r border-gray-800 flex flex-col">
+                            <div class="p-3 font-bold bg-gray-800 border-b border-gray-700 text-xs uppercase tracking-wider text-gray-400">Live Channels</div>
+                            <div class="p-3 hover:bg-gray-800 cursor-pointer flex items-center gap-2 border-b border-gray-800/50" onclick="Apps.tv.changeChannel('${id}', 'news')">
+                                <i class="fas fa-newspaper text-blue-400"></i> News 24/7
+                            </div>
+                            <div class="p-3 hover:bg-gray-800 cursor-pointer flex items-center gap-2 border-b border-gray-800/50" onclick="Apps.tv.changeChannel('${id}', 'sport')">
+                                <i class="fas fa-futbol text-green-400"></i> Sports Live
+                            </div>
+                            <div class="p-3 hover:bg-gray-800 cursor-pointer flex items-center gap-2 border-b border-gray-800/50" onclick="Apps.tv.changeChannel('${id}', 'nature')">
+                                <i class="fas fa-leaf text-green-600"></i> Nature TV
+                            </div>
+                        </div>
+                        <div class="flex-1 relative bg-black flex items-center justify-center overflow-hidden" id="tv-screen-${id}">
+                             <div class="text-gray-500 flex flex-col items-center">
+                                 <i class="fas fa-satellite-dish text-4xl mb-2"></i>
+                                 <span>Select a Channel</span>
+                             </div>
+                        </div>
+                    </div>
+                `, { width: '800px', height: '500px', icon: '<i class="fas fa-tv text-gray-500"></i>' });
+            },
+            changeChannel: (id, type) => {
+                const screen = getEl(`tv-screen-${id}`);
+                // Using YouTube embeds as fake channels
+                const videos = {
+                    'news': 'https://www.youtube.com/embed/5qap5aO4i9A?autoplay=1&mute=1', 
+                    'sport': 'https://www.youtube.com/embed/3D1W7D5KzQc?autoplay=1&mute=1', // Placeholder
+                    'nature': 'https://www.youtube.com/embed/6v2L2UGZJAM?autoplay=1&mute=1' // Placeholder
+                };
+                screen.innerHTML = `<iframe width="100%" height="100%" src="${videos[type]}" frameborder="0" allow="autoplay; encrypted-media" allowfullscreen></iframe>`;
+            }
+        },
+        'ai': {
+            title: 'AI Assistant',
+            icon: '<i class="fas fa-robot text-purple-300"></i>',
+            open: () => {
+                WindowManager.open('ai', 'AI Copilot', (id) => `
+                    <div class="flex flex-col h-full bg-white">
+                        <div class="flex-1 p-4 overflow-auto space-y-4" id="ai-chat-${id}">
+                            <div class="flex gap-3">
+                                <div class="w-8 h-8 rounded-full bg-purple-600 flex items-center justify-center text-white"><i class="fas fa-robot text-xs"></i></div>
+                                <div class="bg-gray-100 p-3 rounded-2xl rounded-tl-none max-w-[80%] text-sm">
+                                    Hi! I'm your OS Copilot. I can create folders, files, or open apps. Try "Create folder Work" or "Open Paint".
+                                </div>
+                            </div>
+                        </div>
+                        <div class="p-3 border-t flex gap-2 bg-gray-50">
+                            <input type="text" id="ai-input-${id}" class="flex-1 border border-gray-300 rounded-full px-4 py-2 text-sm outline-none focus:border-purple-500" placeholder="Ask me to do something...">
+                            <button class="bg-purple-600 hover:bg-purple-700 text-white px-4 rounded-full transition-colors" onclick="Apps.ai.send('${id}')"><i class="fas fa-paper-plane"></i></button>
+                        </div>
+                    </div>
+                `, { width: '400px', height: '550px', icon: '<i class="fas fa-robot text-purple-300"></i>' });
+            },
+            send: (id) => {
+                const input = getEl(`ai-input-${id}`);
+                const chat = getEl(`ai-chat-${id}`);
+                const text = input.value.trim();
+                if(!text) return;
+                
+                chat.innerHTML += `
+                    <div class="flex gap-3 justify-end">
+                        <div class="bg-blue-600 text-white p-3 rounded-2xl rounded-tr-none max-w-[80%] text-sm">${text}</div>
+                    </div>`;
+                input.value = '';
+                
+                setTimeout(() => {
+                    let response = "I'm not sure how to do that yet.";
+                    const lower = text.toLowerCase();
+                    
+                    if(lower.includes('create folder')) {
+                        const name = text.split('folder')[1]?.trim() || 'New Folder';
+                        FileSystem.createFile(name, 'folder', '', 'desktop');
+                        FileSystem.renderDesktop();
+                        response = `I've created the folder "${name}" on your desktop.`;
+                    } else if (lower.includes('create file') || lower.includes('text')) {
+                         const name = text.split('file')[1]?.trim() || 'Note.txt';
+                         FileSystem.createFile(name, 'txt', 'Created by AI', 'desktop');
+                         FileSystem.renderDesktop();
+                         response = `I've created the file "${name}" for you.`;
+                    } else if (lower.includes('open paint') || lower.includes('draw')) {
+                         Apps.paint.open();
+                         response = "Opening Paint...";
+                    } else if (lower.includes('snake')) {
+                         Apps.games.snake();
+                         response = "Starting Snake game!";
+                    }
+                    
+                    chat.innerHTML += `
+                        <div class="flex gap-3">
+                            <div class="w-8 h-8 rounded-full bg-purple-600 flex items-center justify-center text-white"><i class="fas fa-robot text-xs"></i></div>
+                            <div class="bg-gray-100 p-3 rounded-2xl rounded-tl-none max-w-[80%] text-sm">${response}</div>
+                        </div>`;
+                    chat.scrollTop = chat.scrollHeight;
+                }, 600);
+            }
+        },
+        'chat': {
+            title: 'Messenger',
+            icon: '<i class="fas fa-comment-dots text-blue-500"></i>',
+            open: () => {
+                WindowManager.open('chat', 'Messenger', (id) => `
+                    <div class="flex h-full bg-white">
+                        <div class="w-1/3 border-r bg-gray-50 flex flex-col">
+                            <div class="p-4 font-bold border-b text-lg">Chats</div>
+                            <div class="overflow-auto flex-1">
+                                ${['Mom', 'Dad', 'Work Group', 'AI Bot'].map(name => `
+                                    <div class="p-3 hover:bg-gray-200 cursor-pointer flex items-center gap-3 transition-colors border-b border-gray-100" onclick="Apps.chat.loadChat('${id}', '${name}')">
+                                        <div class="w-10 h-10 rounded-full bg-blue-500 flex items-center justify-center text-white font-bold shadow-sm">${name[0]}</div>
+                                        <div>
+                                            <div class="text-sm font-semibold">${name}</div>
+                                            <div class="text-xs text-gray-500">Click to chat</div>
+                                        </div>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        </div>
+                        <div class="flex-1 flex flex-col relative bg-white">
+                            <div class="p-3 border-b font-bold bg-white flex items-center gap-2 shadow-sm z-10">
+                                <span id="chat-header-${id}">Select a chat</span>
+                            </div>
+                            <div class="flex-1 p-4 overflow-auto bg-gray-50 flex flex-col gap-2" id="chat-msgs-${id}">
+                                <div class="text-center text-gray-400 text-sm mt-10">Select a conversation to start messaging</div>
+                            </div>
+                            <div class="p-3 border-t bg-white flex gap-2">
+                                <input type="text" id="chat-input-${id}" class="flex-1 border border-gray-300 rounded-full px-4 py-2 text-sm outline-none focus:border-blue-500" placeholder="Type a message...">
+                                <button class="bg-blue-500 hover:bg-blue-600 text-white p-2 rounded-full w-9 h-9 flex items-center justify-center transition-colors" onclick="Apps.chat.send('${id}')"><i class="fas fa-paper-plane text-xs"></i></button>
+                            </div>
+                        </div>
+                    </div>
+                `, { width: '700px', height: '550px', icon: '<i class="fas fa-comment-dots text-blue-500"></i>' });
+            },
+            loadChat: (id, name) => {
+                getEl(`chat-header-${id}`).innerText = name;
+                const msgs = getEl(`chat-msgs-${id}`);
+                msgs.innerHTML = `<div class="text-center text-gray-400 text-xs my-4">Conversation with ${name} started</div>`;
+                msgs.dataset.activeChat = name;
+            },
+            send: (id) => {
+                const input = getEl(`chat-input-${id}`);
+                const msgs = getEl(`chat-msgs-${id}`);
+                const text = input.value.trim();
+                const name = msgs.dataset.activeChat;
+                if(!text || !name) return;
+                
+                msgs.innerHTML += `<div class="self-end bg-blue-500 text-white rounded-2xl rounded-tr-none px-4 py-2 max-w-[80%] text-sm shadow-sm mb-1">${text}</div>`;
+                input.value = '';
+                msgs.scrollTop = msgs.scrollHeight;
+                
+                setTimeout(() => {
+                    const replies = ["Hello!", "How are you?", "That's interesting.", "Ok.", "Call me later."];
+                    const reply = replies[Math.floor(Math.random() * replies.length)];
+                    msgs.innerHTML += `<div class="self-start bg-gray-200 text-gray-800 rounded-2xl rounded-tl-none px-4 py-2 max-w-[80%] text-sm shadow-sm mb-1">${reply}</div>`;
+                    msgs.scrollTop = msgs.scrollHeight;
+                }, 1000);
+            }
+        },
+        'telegram': {
+            title: 'Telegram',
+            icon: '<i class="fab fa-telegram text-blue-400"></i>',
+            open: () => {
+                WindowManager.open('telegram', 'Telegram', (id) => `
+                    <div class="flex h-full bg-white">
+                        <div class="w-1/3 border-r bg-gray-100 flex flex-col">
+                            <div class="p-3 bg-[#2AABEE] text-white flex items-center justify-between">
+                                <span class="font-bold">Telegram</span>
+                                <i class="fas fa-bars"></i>
+                            </div>
+                            <div class="overflow-auto flex-1">
+                                ${['Saved Messages', 'Mom', 'University Group', 'Bot Father'].map(name => `
+                                    <div class="p-2 hover:bg-white cursor-pointer flex items-center gap-3 transition-colors border-b border-gray-200/50" onclick="Apps.telegram.loadChat('${id}', '${name}')">
+                                        <div class="w-10 h-10 rounded-full bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center text-white font-bold">${name[0]}</div>
+                                        <div>
+                                            <div class="text-sm font-semibold">${name}</div>
+                                            <div class="text-xs text-gray-500">Last seen recently</div>
+                                        </div>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        </div>
+                        <div class="flex-1 flex flex-col relative bg-[#E6EBEF] bg-opacity-50" style="background-image: url('https://web.telegram.org/img/bg_0.png'); background-size: cover;">
+                            <div class="p-2 border-b bg-white flex items-center gap-2 shadow-sm z-10">
+                                <span id="tg-header-${id}" class="font-semibold">Select a chat</span>
+                            </div>
+                            <div class="flex-1 p-4 overflow-auto flex flex-col gap-2" id="tg-msgs-${id}"></div>
+                            <div class="p-3 bg-white flex gap-2">
+                                <input type="text" id="tg-input-${id}" class="flex-1 border-0 bg-gray-100 rounded px-4 py-2 text-sm outline-none" placeholder="Write a message...">
+                                <button class="text-[#2AABEE] p-2" onclick="Apps.telegram.send('${id}')"><i class="fas fa-paper-plane text-xl"></i></button>
+                            </div>
+                        </div>
+                    </div>
+                `, { width: '800px', height: '600px', icon: '<i class="fab fa-telegram text-blue-400"></i>' });
+            },
+            loadChat: (id, name) => {
+                getEl(`tg-header-${id}`).innerText = name;
+                const msgs = getEl(`tg-msgs-${id}`);
+                msgs.innerHTML = '';
+                msgs.dataset.activeChat = name;
+            },
+            send: (id) => {
+                const input = getEl(`tg-input-${id}`);
+                const msgs = getEl(`tg-msgs-${id}`);
+                const text = input.value.trim();
+                const name = msgs.dataset.activeChat;
+                if(!text || !name) return;
+                
+                msgs.innerHTML += `<div class="self-end bg-[#EEFFDE] text-black rounded-lg px-3 py-1 max-w-[80%] text-sm shadow-sm mb-1">${text}<div class="text-[10px] text-green-600 text-right"><i class="fas fa-check"></i> 12:00</div></div>`;
+                input.value = '';
+                msgs.scrollTop = msgs.scrollHeight;
+                
+                setTimeout(() => {
+                    msgs.innerHTML += `<div class="self-start bg-white text-black rounded-lg px-3 py-1 max-w-[80%] text-sm shadow-sm mb-1">Reply from ${name}<div class="text-[10px] text-gray-400 text-right">12:01</div></div>`;
+                    msgs.scrollTop = msgs.scrollHeight;
+                }, 1500);
+            }
+        },
+        'whatsapp': {
+            title: 'WhatsApp',
+            icon: '<i class="fab fa-whatsapp text-green-500"></i>',
+            open: () => {
+                WindowManager.open('whatsapp', 'WhatsApp', (id) => `
+                    <div class="flex h-full bg-[#f0f2f5]">
+                        <div class="w-1/3 border-r bg-white flex flex-col">
+                            <div class="p-3 bg-[#f0f2f5] flex justify-between items-center border-b">
+                                <div class="w-8 h-8 bg-gray-300 rounded-full"></div>
+                                <div class="flex gap-4 text-gray-500"><i class="fas fa-circle-notch"></i><i class="fas fa-comment-alt"></i><i class="fas fa-ellipsis-v"></i></div>
+                            </div>
+                            <div class="p-2 bg-white"><input type="text" placeholder="Search or start new chat" class="w-full bg-[#f0f2f5] rounded-lg px-3 py-1 text-sm outline-none"></div>
+                            <div class="overflow-auto flex-1 bg-white">
+                                ${['Bestie', 'Work', 'Family Group'].map(name => `
+                                    <div class="p-3 hover:bg-[#f5f6f6] cursor-pointer flex items-center gap-3 border-b border-gray-100" onclick="Apps.whatsapp.loadChat('${id}', '${name}')">
+                                        <div class="w-12 h-12 rounded-full bg-gray-300 flex items-center justify-center text-white text-xl"><i class="fas fa-user"></i></div>
+                                        <div class="flex-1 border-b border-gray-100 pb-3">
+                                            <div class="flex justify-between"><span class="text-sm font-medium text-gray-900">${name}</span><span class="text-xs text-gray-500">Yesterday</span></div>
+                                            <div class="text-xs text-gray-500 truncate">Hey there!</div>
+                                        </div>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        </div>
+                        <div class="flex-1 flex flex-col relative bg-[#efeae2]" style="background-image: url('https://user-images.githubusercontent.com/15075759/28719144-86dc0f70-73b1-11e7-911d-60d70fcded21.png');">
+                            <div class="p-2 bg-[#f0f2f5] flex items-center gap-3 border-b px-4">
+                                <div class="w-8 h-8 rounded-full bg-gray-300"></div>
+                                <span id="wa-header-${id}" class="font-medium text-gray-800">Select a chat</span>
+                            </div>
+                            <div class="flex-1 p-5 overflow-auto flex flex-col gap-2" id="wa-msgs-${id}"></div>
+                            <div class="p-2 bg-[#f0f2f5] flex gap-2 items-center px-4">
+                                <i class="far fa-smile text-gray-500 text-xl"></i>
+                                <i class="fas fa-paperclip text-gray-500 text-xl"></i>
+                                <input type="text" id="wa-input-${id}" class="flex-1 bg-white rounded-lg px-4 py-2 text-sm outline-none" placeholder="Type a message">
+                                <i class="fas fa-microphone text-gray-500 text-xl cursor-pointer" onclick="Apps.whatsapp.send('${id}')"></i>
+                            </div>
+                        </div>
+                    </div>
+                `, { width: '900px', height: '650px', icon: '<i class="fab fa-whatsapp text-green-500"></i>' });
+            },
+            loadChat: (id, name) => {
+                getEl(`wa-header-${id}`).innerText = name;
+                const msgs = getEl(`wa-msgs-${id}`);
+                msgs.innerHTML = '<div class="text-center text-xs bg-[#fff5c4] p-1 rounded mb-4 shadow-sm inline-block self-center mx-auto text-gray-800">Messages are end-to-end encrypted.</div>';
+                msgs.dataset.activeChat = name;
+            },
+            send: (id) => {
+                const input = getEl(`wa-input-${id}`);
+                const msgs = getEl(`wa-msgs-${id}`);
+                const text = input.value.trim();
+                const name = msgs.dataset.activeChat;
+                if(!text || !name) return;
+                
+                msgs.innerHTML += `<div class="self-end bg-[#d9fdd3] text-gray-800 rounded-lg px-2 py-1 max-w-[60%] text-sm shadow-sm mb-1 flex items-end gap-2">${text}<span class="text-[10px] text-gray-500">12:15 PM <i class="fas fa-check-double text-blue-500"></i></span></div>`;
+                input.value = '';
+                msgs.scrollTop = msgs.scrollHeight;
+                
+                setTimeout(() => {
+                    msgs.innerHTML += `<div class="self-start bg-white text-gray-800 rounded-lg px-2 py-1 max-w-[60%] text-sm shadow-sm mb-1 flex items-end gap-2">Ok!<span class="text-[10px] text-gray-500">12:16 PM</span></div>`;
+                    msgs.scrollTop = msgs.scrollHeight;
+                }, 1000);
+            }
+        },
+        'discord': {
+            title: 'Discord',
+            icon: '<i class="fab fa-discord text-[#5865F2]"></i>',
+            open: () => {
+                WindowManager.open('discord', 'Discord', (id) => `
+                    <div class="flex h-full bg-[#313338] text-gray-300 font-sans">
+                        <!-- Server List -->
+                        <div class="w-[72px] bg-[#1E1F22] flex flex-col items-center py-3 gap-2 overflow-y-auto hide-scrollbar">
+                            <div class="w-12 h-12 rounded-[24px] hover:rounded-[16px] bg-[#5865F2] flex items-center justify-center text-white transition-all cursor-pointer"><i class="fab fa-discord text-xl"></i></div>
+                            <div class="w-8 h-[2px] bg-[#35363C] rounded-lg"></div>
+                            ${[1,2,3].map(i => `
+                                <div class="w-12 h-12 rounded-[24px] hover:rounded-[16px] bg-gray-700 hover:bg-[#23a559] flex items-center justify-center text-white transition-all cursor-pointer group relative">
+                                    <span class="font-bold">S${i}</span>
+                                    <div class="absolute left-[-4px] w-2 h-2 rounded-full bg-white opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                                </div>
+                            `).join('')}
+                            <div class="w-12 h-12 rounded-[24px] hover:rounded-[16px] bg-[#23a559] flex items-center justify-center text-white transition-all cursor-pointer group"><i class="fas fa-plus"></i></div>
+                        </div>
+                        
+                        <!-- Channel List -->
+                        <div class="w-60 bg-[#2B2D31] flex flex-col">
+                            <div class="h-12 border-b border-[#1E1F22] p-4 flex items-center font-bold text-white shadow-sm cursor-pointer hover:bg-[#35373C] transition-colors">
+                                <span>My Server</span>
+                                <i class="fas fa-chevron-down ml-auto text-xs"></i>
+                            </div>
+                            <div class="flex-1 overflow-y-auto p-2">
+                                <div class="uppercase text-xs font-bold text-gray-400 mb-2 px-2 pt-2 hover:text-gray-300 cursor-pointer"><i class="fas fa-angle-down mr-1"></i> Text Channels</div>
+                                ${['general', 'memes', 'coding', 'voice-chat'].map(c => `
+                                    <div class="px-2 py-1.5 rounded mx-1 hover:bg-[#35373C] hover:text-gray-200 cursor-pointer flex items-center gap-1.5 group" onclick="Apps.discord.loadChannel('${id}', '${c}')">
+                                        <i class="fas fa-hashtag text-gray-500 group-hover:text-gray-400 text-lg"></i>
+                                        <span class="font-medium text-gray-400 group-hover:text-gray-200">${c}</span>
+                                    </div>
+                                `).join('')}
+                            </div>
+                            <div class="h-14 bg-[#232428] flex items-center px-2 gap-2">
+                                <div class="w-8 h-8 rounded-full bg-[#5865F2] relative">
+                                    <div class="absolute bottom-0 right-0 w-3 h-3 bg-[#23a559] rounded-full border-2 border-[#232428]"></div>
+                                </div>
+                                <div class="flex-1">
+                                    <div class="text-xs font-bold text-white">User #1234</div>
+                                    <div class="text-[10px] text-gray-400">Online</div>
+                                </div>
+                                <div class="flex gap-2">
+                                    <i class="fas fa-microphone text-gray-400 hover:text-gray-200 cursor-pointer"></i>
+                                    <i class="fas fa-headphones text-gray-400 hover:text-gray-200 cursor-pointer"></i>
+                                    <i class="fas fa-cog text-gray-400 hover:text-gray-200 cursor-pointer"></i>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Chat Area -->
+                        <div class="flex-1 flex flex-col bg-[#313338]">
+                            <div class="h-12 border-b border-[#26272D] flex items-center px-4 shadow-sm">
+                                <i class="fas fa-hashtag text-gray-500 mr-2 text-xl"></i>
+                                <span class="font-bold text-white mr-2" id="dc-header-${id}">general</span>
+                                <span class="text-xs text-gray-400 hidden md:block">| A general place for general chat</span>
+                                <div class="ml-auto flex gap-4 text-gray-400 text-xl">
+                                    <i class="fas fa-bell hover:text-gray-200 cursor-pointer"></i>
+                                    <i class="fas fa-thumbtack hover:text-gray-200 cursor-pointer"></i>
+                                    <i class="fas fa-users hover:text-gray-200 cursor-pointer"></i>
+                                </div>
+                            </div>
+                            <div class="flex-1 overflow-y-auto p-4 flex flex-col gap-4 custom-scrollbar" id="dc-msgs-${id}">
+                                <div class="flex gap-4 group hover:bg-[#2e3035] -mx-4 px-4 py-1">
+                                    <div class="w-10 h-10 rounded-full bg-red-500 mt-0.5 cursor-pointer"></div>
+                                    <div>
+                                        <div class="flex items-baseline gap-2">
+                                            <span class="font-bold text-white hover:underline cursor-pointer">Admin</span>
+                                            <span class="text-[10px] text-gray-400">Today at 10:00 AM</span>
+                                        </div>
+                                        <div class="text-gray-300">Welcome to the server!</div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="p-4 pt-0">
+                                <div class="bg-[#383A40] rounded-lg px-4 py-2.5 flex items-center gap-3">
+                                    <div class="w-6 h-6 rounded-full bg-gray-400 flex items-center justify-center cursor-pointer hover:text-white transition-colors"><i class="fas fa-plus text-xs text-[#383A40]"></i></div>
+                                    <input type="text" id="dc-input-${id}" class="flex-1 bg-transparent outline-none text-gray-200 placeholder-gray-500" placeholder="Message #general" onkeypress="if(event.key === 'Enter') Apps.discord.send('${id}')">
+                                    <div class="flex gap-3 text-gray-400 text-xl">
+                                        <i class="fas fa-gift hover:text-gray-200 cursor-pointer"></i>
+                                        <i class="fas fa-sticky-note hover:text-gray-200 cursor-pointer"></i>
+                                        <i class="fas fa-smile hover:text-gray-200 cursor-pointer"></i>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `, { width: '1000px', height: '700px', icon: '<i class="fab fa-discord text-[#5865F2]"></i>' });
+            },
+            loadChannel: (id, name) => {
+                getEl(`dc-header-${id}`).innerText = name;
+                getEl(`dc-input-${id}`).placeholder = `Message #${name}`;
+                const msgs = getEl(`dc-msgs-${id}`);
+                msgs.innerHTML = `
+                    <div class="mb-6 mt-4 px-4">
+                        <div class="w-16 h-16 rounded-full bg-gray-600 flex items-center justify-center text-4xl text-white mb-2"><i class="fas fa-hashtag"></i></div>
+                        <h1 class="text-3xl font-bold text-white">Welcome to #${name}!</h1>
+                        <p class="text-gray-400">This is the start of the #${name} channel.</p>
+                    </div>
+                `;
+                msgs.dataset.activeChat = name;
+            },
+            send: (id) => {
+                const input = getEl(`dc-input-${id}`);
+                const msgs = getEl(`dc-msgs-${id}`);
+                const text = input.value.trim();
+                if(!text) return;
+                
+                msgs.innerHTML += `
+                    <div class="flex gap-4 group hover:bg-[#2e3035] -mx-4 px-4 py-1 mt-2">
+                        <div class="w-10 h-10 rounded-full bg-[#5865F2] mt-0.5 cursor-pointer"></div>
+                        <div>
+                            <div class="flex items-baseline gap-2">
+                                <span class="font-bold text-white hover:underline cursor-pointer">User</span>
+                                <span class="text-[10px] text-gray-400">Today at ${new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}</span>
+                            </div>
+                            <div class="text-gray-300">${text}</div>
+                        </div>
+                    </div>
+                `;
+                input.value = '';
+                msgs.scrollTop = msgs.scrollHeight;
+            }
+        },
+        'recorder': {
+            title: 'Voice Recorder',
+            icon: '<i class="fas fa-microphone text-red-400"></i>',
+            open: () => {
+                WindowManager.open('recorder', 'Voice Recorder', (id) => `
+                    <div class="flex flex-col h-full items-center justify-center bg-gray-900 text-white gap-8">
+                        <div id="mic-viz-${id}" class="w-40 h-40 rounded-full border-4 border-gray-700 flex items-center justify-center transition-all duration-200 shadow-2xl">
+                            <i class="fas fa-microphone text-5xl text-gray-500"></i>
+                        </div>
+                        <div id="rec-status-${id}" class="text-3xl font-mono tracking-widest">00:00</div>
+                        <button id="rec-btn-${id}" class="bg-red-600 hover:bg-red-500 text-white w-16 h-16 rounded-full shadow-lg flex items-center justify-center transition-all hover:scale-105" onclick="Apps.recorder.toggle('${id}')">
+                            <div id="rec-icon-${id}" class="w-6 h-6 bg-red-600 rounded-full"></div> 
+                        </button>
+                        <div class="text-xs text-gray-400">Click to Record / Stop</div>
+                    </div>
+                `, { width: '350px', height: '450px', icon: '<i class="fas fa-microphone text-red-400"></i>' });
+                // Reset icon initially
+                setTimeout(() => {
+                    const btn = document.querySelector(`[id^="rec-btn-"]`);
+                    if(btn) btn.querySelector('div').className = 'w-6 h-6 bg-white rounded-full'; 
+                }, 50);
+            },
+            toggle: (id) => {
+                const btn = getEl(`rec-btn-${id}`);
+                const icon = getEl(`rec-icon-${id}`);
+                const viz = getEl(`mic-viz-${id}`);
+                const status = getEl(`rec-status-${id}`);
+                
+                if(!btn.dataset.recording) {
+                    // Start Recording
+                    btn.dataset.recording = "true";
+                    icon.className = 'w-6 h-6 bg-white rounded-sm'; // Stop Square
+                    viz.classList.add('border-red-500', 'animate-pulse');
+                    viz.querySelector('i').classList.add('text-red-500');
+                    
+                    let sec = 0;
+                    Apps.recorder.timer = setInterval(() => {
+                        sec++;
+                        const m = Math.floor(sec/60).toString().padStart(2,'0');
+                        const s = (sec%60).toString().padStart(2,'0');
+                        if(status) status.innerText = `${m}:${s}`;
+                    }, 1000);
+                } else {
+                    // Stop Recording & Save
+                    delete btn.dataset.recording;
+                    icon.className = 'w-6 h-6 bg-white rounded-full'; // Record Circle
+                    viz.classList.remove('border-red-500', 'animate-pulse');
+                    viz.querySelector('i').classList.remove('text-red-500');
+                    clearInterval(Apps.recorder.timer);
+                    const duration = status.innerText;
+                    status.innerText = "00:00";
+                    
+                    // Save file
+                    const fileName = `Recording_${Date.now()}.mp3`;
+                    FileSystem.createFile(fileName, 'mp3', `Audio Recording\nDuration: ${duration}\n[Binary Audio Data Simulated]`, 'desktop');
+                    FileSystem.renderDesktop();
+                    
+                    alert(`Saved ${fileName} to Desktop`);
+                }
+            }
+        },
+        'taskManager': {
+            title: 'Task Manager',
+            icon: '<i class="fas fa-tasks text-cyan-400"></i>',
+            open: () => {
+                WindowManager.open('taskmgr', 'Task Manager', (id) => `
+                    <div class="flex flex-col h-full bg-white text-sm">
+                        <div class="bg-gray-50 p-2 font-bold grid grid-cols-3 border-b">
+                            <span>App Name</span>
+                            <span>Memory</span>
+                            <span>Action</span>
+                        </div>
+                        <div class="flex-1 overflow-auto" id="tm-list-${id}">
+                           ${Apps.taskManager.renderList()}
+                        </div>
+                    </div>
+                `, { width: '400px', height: '500px', icon: '<i class="fas fa-tasks text-cyan-400"></i>' });
+                
+                Apps.taskManager.interval = setInterval(() => {
+                    const el = getEl(`tm-list-${id}`);
+                    if(el) el.innerHTML = Apps.taskManager.renderList();
+                    else clearInterval(Apps.taskManager.interval);
+                }, 1000);
+            },
+            renderList: () => {
+                if(System.windows.length === 0) return '<div class="p-4 text-center text-gray-400">No apps running</div>';
+                return System.windows.map(w => `
+                    <div class="grid grid-cols-3 p-3 border-b items-center hover:bg-gray-50">
+                        <div class="flex items-center gap-2 font-medium">
+                            ${Apps[w.appId]?.icon || ''} ${Apps[w.appId]?.title || w.appId}
+                        </div>
+                        <div class="text-gray-500">${Math.floor(Math.random() * 50 + 20)} MB</div>
+                        <button class="bg-red-100 text-red-600 hover:bg-red-200 px-3 rounded text-xs py-1 w-20 transition-colors" onclick="WindowManager.close('${w.id}')">End Task</button>
+                    </div>
+                `).join('');
+            }
+        },
+        'codes': {
+            title: 'Win Codes',
+            icon: '<i class="fas fa-ticket-alt text-yellow-500"></i>',
+            open: () => {
+                WindowManager.open('codes', 'Redeem Codes', (id) => `
+                    <div class="flex flex-col h-full bg-gradient-to-br from-purple-600 to-blue-600 text-white p-6 items-center justify-center relative overflow-hidden">
+                        <div class="absolute top-0 left-0 w-full h-full opacity-10 pointer-events-none" style="background-image: radial-gradient(circle, #fff 10%, transparent 10%); background-size: 20px 20px;"></div>
+                        <i class="fas fa-trophy text-6xl text-yellow-300 mb-4 drop-shadow-lg animate-bounce"></i>
+                        <h2 class="text-2xl font-bold mb-2">Enter Gift Code</h2>
+                        <p class="text-sm opacity-80 mb-6 text-center">Enter a secret code to unlock prizes!</p>
+                        
+                        <div class="flex gap-2 w-full max-w-xs mb-4">
+                            <input type="text" id="code-input-${id}" class="flex-1 rounded-l-lg px-4 py-2 text-black text-center font-mono font-bold uppercase outline-none focus:ring-2 focus:ring-yellow-400" placeholder="CODE">
+                            <button class="bg-yellow-500 hover:bg-yellow-400 text-black font-bold px-4 py-2 rounded-r-lg transition-colors" onclick="Apps.codes.redeem('${id}')">GO</button>
+                        </div>
+                        
+                        <div class="text-xs text-center cursor-pointer hover:underline opacity-60" onclick="getEl('code-hints-${id}').classList.toggle('hidden')">Show Available Codes</div>
+                        <div id="code-hints-${id}" class="hidden mt-4 bg-black/30 p-4 rounded-lg backdrop-blur-sm w-full max-w-xs text-center max-h-40 overflow-auto custom-scrollbar">
+                            <div class="font-mono text-yellow-300 mb-1 flex justify-between"><span>WIN12</span> <span class="text-white/50">Prize</span></div>
+                            <div class="font-mono text-green-300 mb-1 flex justify-between"><span>MONEY</span> <span class="text-white/50">Clicker</span></div>
+                            <div class="font-mono text-red-300 mb-1 flex justify-between"><span>CRAZY</span> <span class="text-white/50">Error</span></div>
+                            <div class="font-mono text-pink-300 mb-1 flex justify-between"><span>MUSIC</span> <span class="text-white/50">Player</span></div>
+                            <div class="font-mono text-purple-300 mb-1 flex justify-between"><span>ALICE</span> <span class="text-white/50">AI</span></div>
+                            <div class="font-mono text-blue-300 mb-1 flex justify-between"><span>BSOD</span> <span class="text-white/50">Crash</span></div>
+                            <div class="font-mono text-gray-300 mb-1 flex justify-between"><span>DARK</span> <span class="text-white/50">Theme</span></div>
+                        </div>
+                    </div>
+                `, { width: '400px', height: '550px', icon: '<i class="fas fa-ticket-alt text-yellow-500"></i>' });
+            },
+            redeem: (id) => {
+                const input = getEl(`code-input-${id}`);
+                const code = input.value.trim().toUpperCase();
+                input.value = '';
+                
+                const actions = {
+                    'WIN12': () => {
+                         FileSystem.createFile('Prize.txt', 'txt', 'Congratulations! You found the secret WIN12 code.', 'desktop');
+                         FileSystem.renderDesktop();
+                         WindowManager.showError('Success', 'Prize added to Desktop!');
+                    },
+                    'MONEY': () => {
+                         WindowManager.open('clicker', 'Cookie Clicker', Apps.games.clicker); 
+                         WindowManager.showError('Rich!', 'You are now rich in cookies!');
+                    },
+                    'CRAZY': () => Apps.crazyError.open(),
+                    'MUSIC': () => Apps.music.open(),
+                    'ALICE': () => Apps.alice.open(),
+                    'DARK': () => OS.toggleTheme(),
+                    'BSOD': () => System.triggerBSOD('USER_INITIATED_CRASH'),
+                    'RESET': () => window.location.reload()
+                };
+
+                if (actions[code]) {
+                    actions[code]();
+                } else {
+                     WindowManager.showError('Invalid Code', 'That code does not exist.');
+                }
+            }
+        },
+        'crazyError': {
+            title: 'Crazy Error',
+            icon: '<i class="fas fa-bomb text-red-600"></i>',
+            open: () => {
+                WindowManager.open('crazy', 'Crazy Error V2', (id) => `
+                    <div class="flex flex-col h-full bg-red-100 p-6 items-center justify-center text-center">
+                        <i class="fas fa-biohazard text-6xl text-red-600 mb-4 animate-pulse"></i>
+                        <h1 class="text-2xl font-bold text-red-900 mb-2">Crazy Error V2</h1>
+                        <p class="text-red-800 mb-6">Warning: This will cause simulated system instability.</p>
+                        <button class="bg-red-600 hover:bg-red-700 text-white font-bold py-3 px-8 rounded-full shadow-lg transform transition hover:scale-105 active:scale-95" onclick="Apps.crazyError.start()">
+                            <i class="fas fa-radiation mr-2"></i> INITIATE CHAOS
+                        </button>
+                    </div>
+                `, { width: '450px', height: '350px', icon: '<i class="fas fa-bomb text-red-600"></i>' });
+            },
+            start: () => {
+                const errors = ["System32 not found", "Critical Process Died", "Memory Overflow", "Unknown Exception 0x000000", "Task Manager has stopped working", "Windows needs a break", "Too many cookies", "Keyboard not detected"];
+                let i = 0;
+                const interval = setInterval(() => {
+                    if(i > 15) { clearInterval(interval); return; }
+                    i++;
+                    WindowManager.showError('System Error', errors[Math.floor(Math.random() * errors.length)]);
+                    System.windows.forEach(w => {
+                        const el = getEl(w.id);
+                        if(el) {
+                            el.style.top = Math.random() * (window.innerHeight - 200) + 'px';
+                            el.style.left = Math.random() * (window.innerWidth - 300) + 'px';
+                        }
+                    });
+                }, 300);
+            }
+        },
+        'music': {
+            title: 'Music',
+            icon: '<i class="fas fa-music text-pink-500"></i>',
+            open: (fileId) => {
+                let initialSrc = '';
+                let initialName = 'Select a track';
+                
+                if (fileId && typeof fileId === 'string') {
+                    const file = FileSystem.files.find(f => f.id === fileId);
+                    if(file) {
+                        initialName = file.name;
+                        // Simulating playback of file content if it's a data URI, otherwise placeholder
+                        if(file.content && file.content.startsWith('data:audio')) initialSrc = file.content;
+                    }
+                }
+
+                WindowManager.open('music', 'Music Player', (id) => `
+                    <div class="flex flex-col h-full bg-gray-900 text-white">
+                        <div class="h-40 bg-gradient-to-r from-pink-500 to-purple-600 flex items-center justify-center relative overflow-hidden">
+                            <i class="fas fa-compact-disc text-8xl opacity-50 animate-spin-slow" style="animation-duration: 4s;"></i>
+                            <div class="absolute bottom-2 left-4 font-bold text-lg drop-shadow-md" id="music-title-${id}">${initialName}</div>
+                        </div>
+                        <div class="p-4 bg-gray-800 flex items-center justify-center gap-6 shadow-md z-10">
+                            <button class="text-gray-400 hover:text-white"><i class="fas fa-step-backward"></i></button>
+                            <button class="w-12 h-12 bg-pink-500 rounded-full flex items-center justify-center hover:bg-pink-400 shadow-lg active:scale-95 transition-all" onclick="Apps.music.togglePlay('${id}')">
+                                <i class="fas fa-play" id="play-icon-${id}"></i>
+                            </button>
+                            <button class="text-gray-400 hover:text-white"><i class="fas fa-step-forward"></i></button>
+                        </div>
+                        
+                        <div class="p-3 bg-gray-900 border-b border-gray-700">
+                             <div class="flex gap-2">
+                                <input type="text" id="music-url-${id}" placeholder="Enter MP3 URL..." class="flex-1 bg-gray-800 border border-gray-700 rounded px-3 py-1 text-xs text-white outline-none focus:border-pink-500">
+                                <button class="bg-gray-700 px-3 py-1 rounded text-xs hover:bg-gray-600" onclick="Apps.music.loadUrl('${id}')">Load</button>
+                             </div>
+                        </div>
+
+                        <div class="flex-1 overflow-auto bg-gray-900 p-2 space-y-1">
+                            <div class="text-xs text-gray-500 uppercase font-bold px-2 mb-2">Web Radio</div>
+                            <div class="p-2 hover:bg-white/10 rounded cursor-pointer flex items-center gap-3 transition-colors" onclick="Apps.music.playTrack('${id}', 'https://cdn.pixabay.com/download/audio/2022/05/27/audio_1808fbf07a.mp3', 'Lofi Chill')">
+                                <i class="fas fa-coffee text-pink-400"></i>
+                                <div class="flex-1 text-sm">Lofi Chill</div>
+                            </div>
+                            <div class="p-2 hover:bg-white/10 rounded cursor-pointer flex items-center gap-3 transition-colors" onclick="Apps.music.playTrack('${id}', 'https://cdn.pixabay.com/download/audio/2022/01/18/audio_d0a13f69d2.mp3', 'Upbeat Pop')">
+                                <i class="fas fa-bolt text-yellow-400"></i>
+                                <div class="flex-1 text-sm">Upbeat Pop</div>
+                            </div>
+                            <div class="p-2 hover:bg-white/10 rounded cursor-pointer flex items-center gap-3 transition-colors" onclick="Apps.music.playTrack('${id}', 'https://cdn.pixabay.com/download/audio/2021/11/25/audio_915d0c4929.mp3', 'Ambient Piano')">
+                                <i class="fas fa-cloud text-blue-400"></i>
+                                <div class="flex-1 text-sm">Ambient Piano</div>
+                            </div>
+                        </div>
+                        <audio id="audio-el-${id}" src="${initialSrc}" onended="Apps.music.onEnd('${id}')"></audio>
+                    </div>
+                `, { width: '350px', height: '500px', icon: '<i class="fas fa-music text-pink-500"></i>' });
+            },
+            togglePlay: (id) => {
+                const audio = getEl(`audio-el-${id}`);
+                const icon = getEl(`play-icon-${id}`);
+                if (audio.paused) {
+                    audio.play();
+                    icon.className = 'fas fa-pause';
+                } else {
+                    audio.pause();
+                    icon.className = 'fas fa-play';
+                }
+            },
+            playTrack: (id, url, title) => {
+                const audio = getEl(`audio-el-${id}`);
+                const titleEl = getEl(`music-title-${id}`);
+                const icon = getEl(`play-icon-${id}`);
+                
+                audio.src = url;
+                audio.play();
+                titleEl.innerText = title;
+                icon.className = 'fas fa-pause';
+            },
+            loadUrl: (id) => {
+                 const url = getEl(`music-url-${id}`).value;
+                 if(url) Apps.music.playTrack(id, url, 'Stream from URL');
+            },
+            onEnd: (id) => {
+                 getEl(`play-icon-${id}`).className = 'fas fa-play';
+            }
+        },
+        'alice': {
+            title: 'Alice',
+            icon: '<i class="fas fa-microphone-alt text-purple-600"></i>',
+            open: () => {
+                WindowManager.open('alice', 'Alice Assistant', (id) => `
+                    <div class="flex flex-col h-full bg-[#181818] text-white overflow-hidden relative">
+                        <!-- Header -->
+                        <div class="absolute top-0 w-full p-4 flex justify-between items-center z-10 bg-gradient-to-b from-black/50 to-transparent">
+                            <span class="font-bold text-lg tracking-wide text-purple-200">Alice</span>
+                            <div class="w-2 h-2 rounded-full bg-green-400 shadow-[0_0_10px_#4ade80]"></div>
+                        </div>
+
+                        <!-- Chat Area -->
+                        <div class="flex-1 overflow-auto p-4 space-y-4 pt-16 pb-20 custom-scrollbar" id="alice-chat-${id}">
+                            <div class="flex gap-4 items-end">
+                                <div class="w-8 h-8 rounded-full bg-gradient-to-br from-purple-500 to-indigo-600 flex items-center justify-center shrink-0 shadow-lg">
+                                    <i class="fas fa-star text-xs"></i>
+                                </div>
+                                <div class="bg-[#2a2a2a] p-3 rounded-2xl rounded-bl-none max-w-[85%] text-sm leading-relaxed border border-white/5">
+                                    Hi! I'm Alice. I can toggle dark mode, open apps, or just chat. Try saying "Open Music" or "Tell me a joke".
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Input Area -->
+                        <div class="absolute bottom-0 w-full p-4 bg-[#181818] border-t border-white/10">
+                            <div class="relative">
+                                <input type="text" id="alice-input-${id}" 
+                                    class="w-full bg-[#2a2a2a] rounded-full pl-5 pr-12 py-3 text-sm text-white focus:outline-none focus:ring-2 focus:ring-purple-500/50 transition-all placeholder-gray-500"
+                                    placeholder="Ask Alice..."
+                                    onkeypress="if(event.key === 'Enter') Apps.alice.send('${id}')">
+                                <button class="absolute right-2 top-1.5 p-1.5 bg-purple-600 hover:bg-purple-500 rounded-full w-8 h-8 flex items-center justify-center transition-colors shadow-lg"
+                                    onclick="Apps.alice.send('${id}')">
+                                    <i class="fas fa-arrow-up text-xs"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                `, { width: '380px', height: '550px', icon: '<i class="fas fa-microphone-alt text-purple-600"></i>' });
+            },
+            send: (id) => {
+                const input = getEl(`alice-input-${id}`);
+                const chat = getEl(`alice-chat-${id}`);
+                const text = input.value.trim();
+                if (!text) return;
+
+                // User Message
+                chat.innerHTML += `
+                    <div class="flex gap-4 items-end justify-end animate-in fade-in slide-in-from-bottom-2 duration-300">
+                        <div class="bg-purple-600 p-3 rounded-2xl rounded-br-none max-w-[85%] text-sm leading-relaxed shadow-md">
+                            ${text}
+                        </div>
+                    </div>`;
+                input.value = '';
+                chat.scrollTop = chat.scrollHeight;
+
+                // AI Logic
+                setTimeout(() => {
+                    let response = "I didn't quite catch that.";
+                    let action = null;
+                    const lower = text.toLowerCase();
+
+                    if (lower.includes('hello') || lower.includes('hi') || lower.includes('привет')) {
+                        response = "Hello there! How can I help you today?";
+                    } else if (lower.includes('joke') || lower.includes('шутк')) {
+                        const jokes = [
+                            "Why do programmers prefer dark mode? Because light attracts bugs.",
+                            "I would tell you a UDP joke, but you might not get it.",
+                            "Knock knock. Who's there? Java. Java who? (Exceptions everywhere)"
+                        ];
+                        response = jokes[Math.floor(Math.random() * jokes.length)];
+                    } else if (lower.includes('time') || lower.includes('время')) {
+                        response = `It is currently ${new Date().toLocaleTimeString()}.`;
+                    } else if (lower.includes('open') || lower.includes('открой')) {
+                         if(lower.includes('music') || lower.includes('музык')) { response = "Opening Music Player..."; action = () => Apps.music.open(); }
+                         else if(lower.includes('youtube')) { response = "Opening YouTube..."; action = () => Apps.youtube.open(); }
+                         else if(lower.includes('paint')) { response = "Opening Paint..."; action = () => Apps.paint.open(); }
+                         else if(lower.includes('settings')) { response = "Opening Settings..."; action = () => Apps.settings.open(); }
+                         else { response = "I can't open that specific app yet."; }
+                    } else if (lower.includes('dark') || lower.includes('light') || lower.includes('тем')) {
+                        response = "Toggling theme mode for you.";
+                        action = () => OS.toggleTheme();
+                    } else if (lower.includes('weather') || lower.includes('погод')) {
+                        response = "It looks sunny in the digital world today! 25°C.";
+                    }
+
+                    // Bot Response
+                    chat.innerHTML += `
+                        <div class="flex gap-4 items-end animate-in fade-in slide-in-from-bottom-2 duration-300">
+                            <div class="w-8 h-8 rounded-full bg-gradient-to-br from-purple-500 to-indigo-600 flex items-center justify-center shrink-0 shadow-lg">
+                                <i class="fas fa-star text-xs"></i>
+                            </div>
+                            <div class="bg-[#2a2a2a] p-3 rounded-2xl rounded-bl-none max-w-[85%] text-sm leading-relaxed border border-white/5">
+                                ${response}
+                            </div>
+                        </div>`;
+                    chat.scrollTop = chat.scrollHeight;
+                    
+                    if (action) setTimeout(action, 500);
+
+                }, 800);
+            }
+        },
+        'google': {
+            title: 'Google Services',
+            icon: '<i class="fab fa-google text-blue-500"></i>',
+            open: () => {
+                WindowManager.open('google', 'Google Workspace', (id) => `
+                    <div class="flex h-full bg-white flex-col">
+                        <div class="flex items-center gap-4 px-4 py-2 border-b shadow-sm">
+                            <i class="fab fa-google text-2xl text-gray-700"></i>
+                            <div class="flex gap-1 text-sm text-gray-600 overflow-x-auto">
+                                <button onclick="Apps.google.nav('${id}', 'search')" class="hover:bg-gray-100 px-3 py-1.5 rounded transition-colors font-medium">Search</button>
+                                <button onclick="Apps.google.nav('${id}', 'gmail')" class="hover:bg-gray-100 px-3 py-1.5 rounded transition-colors font-medium">Gmail</button>
+                                <button onclick="Apps.google.nav('${id}', 'photos')" class="hover:bg-gray-100 px-3 py-1.5 rounded transition-colors font-medium">Photos</button>
+                                <button onclick="Apps.google.nav('${id}', 'youtube')" class="hover:bg-gray-100 px-3 py-1.5 rounded transition-colors font-medium">Video</button>
+                                <button onclick="Apps.google.nav('${id}', 'play')" class="hover:bg-gray-100 px-3 py-1.5 rounded transition-colors font-medium">Play Store</button>
+                            </div>
+                            <div class="flex-1 text-right">
+                                <div class="w-8 h-8 rounded-full bg-blue-600 text-white inline-flex items-center justify-center shadow font-bold text-xs">US</div>
+                            </div>
+                        </div>
+                        <div id="google-content-${id}" class="flex-1 overflow-auto bg-white relative">
+                            <!-- Default content loaded via JS -->
+                        </div>
+                    </div>
+                `, { width: '900px', height: '600px', icon: '<i class="fab fa-google text-blue-500"></i>' });
+                setTimeout(() => Apps.google.nav(System.windows[System.windows.length-1].id, 'search'), 50);
+            },
+            nav: (id, tab) => {
+                const container = getEl(`google-content-${id}`);
+                if(!container) return;
+                
+                let content = '';
+                if(tab === 'search') {
+                    content = `
+                        <div class="flex flex-col items-center mt-20 px-4 animate-in fade-in zoom-in duration-300">
+                            <div class="text-6xl md:text-8xl font-bold text-gray-700 mb-8 select-none"><span class="text-[#4285F4]">G</span><span class="text-[#EA4335]">o</span><span class="text-[#FBBC05]">o</span><span class="text-[#4285F4]">g</span><span class="text-[#34A853]">l</span><span class="text-[#EA4335]">e</span></div>
+                            <div class="w-full max-w-xl relative">
+                                <input type="text" class="w-full border border-gray-200 rounded-full px-5 py-3 shadow-sm hover:shadow-md focus:shadow-md outline-none transition-shadow text-gray-700" placeholder="Search Google or type a URL">
+                                <i class="fas fa-search absolute right-5 top-4 text-blue-500"></i>
+                                <i class="fas fa-microphone absolute right-12 top-4 text-gray-400 cursor-pointer hover:text-red-500"></i>
+                            </div>
+                            <div class="mt-8 flex gap-3">
+                                <button class="bg-[#f8f9fa] border border-[#f8f9fa] hover:border-[#dadce0] hover:shadow-sm px-4 py-2 rounded text-sm text-[#3c4043] transition-all">Google Search</button>
+                                <button class="bg-[#f8f9fa] border border-[#f8f9fa] hover:border-[#dadce0] hover:shadow-sm px-4 py-2 rounded text-sm text-[#3c4043] transition-all">I'm Feeling Lucky</button>
+                            </div>
+                            <div class="mt-8 text-xs text-gray-500">
+                                Google offered in: <a href="#" class="text-blue-700 hover:underline">English</a> <a href="#" class="text-blue-700 hover:underline">Español</a>
+                            </div>
+                        </div>`;
+                } else if (tab === 'gmail') {
+                    content = `
+                        <div class="flex h-full animate-in slide-in-from-right-4 duration-200">
+                            <div class="w-56 bg-white p-3 border-r hidden md:block">
+                                <button class="bg-[#c2e7ff] hover:shadow text-[#001d35] rounded-2xl px-6 py-4 shadow-sm mb-6 font-medium flex items-center gap-3 transition-shadow w-36"><i class="fas fa-pen"></i> Compose</button>
+                                <div class="space-y-1">
+                                    <div class="bg-[#d3e3fd] text-[#001d35] px-4 py-1.5 rounded-r-full font-bold text-sm flex items-center gap-3"><i class="fas fa-inbox text-sm"></i> Inbox <span class="ml-auto text-xs">5</span></div>
+                                    <div class="px-4 py-1.5 text-gray-700 text-sm hover:bg-gray-100 rounded-r-full flex items-center gap-3 cursor-pointer"><i class="far fa-star text-sm"></i> Starred</div>
+                                    <div class="px-4 py-1.5 text-gray-700 text-sm hover:bg-gray-100 rounded-r-full flex items-center gap-3 cursor-pointer"><i class="far fa-clock text-sm"></i> Snoozed</div>
+                                    <div class="px-4 py-1.5 text-gray-700 text-sm hover:bg-gray-100 rounded-r-full flex items-center gap-3 cursor-pointer"><i class="fas fa-paper-plane text-sm"></i> Sent</div>
+                                </div>
+                            </div>
+                            <div class="flex-1 bg-white overflow-auto">
+                                ${[1,2,3,4,5].map(i => `
+                                    <div class="flex items-center p-3 border-b border-gray-100 hover:shadow-md cursor-pointer hover:bg-gray-50 transition-shadow group">
+                                        <i class="far fa-square text-gray-400 mr-4 group-hover:text-gray-600"></i>
+                                        <i class="far fa-star text-gray-400 mr-4 group-hover:text-yellow-400"></i>
+                                        <span class="font-bold w-40 text-gray-800 text-sm">Google Team</span>
+                                        <span class="flex-1 truncate text-sm text-gray-600"><span class="font-medium text-black">Security Alert</span> - New sign-in on Windows 12 Web Edition detected from generic browser...</span>
+                                        <span class="text-xs text-gray-500 font-medium">10:4${i} AM</span>
+                                    </div>
+                                `).join('')}
+                                <div class="p-3 bg-gray-50 text-xs text-gray-500 text-center mt-2">0.15 GB of 15 GB used</div>
+                            </div>
+                        </div>`;
+                } else if (tab === 'photos') {
+                    content = `
+                        <div class="p-6 h-full overflow-auto animate-in fade-in duration-300">
+                            <h3 class="text-lg font-medium text-gray-600 mb-4">Today</h3>
+                            <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                                ${[1,2,3,4,5,6,7,8].map(i => `
+                                    <div class="aspect-square bg-gray-100 rounded-lg overflow-hidden relative group cursor-pointer shadow-sm hover:shadow-lg transition-all">
+                                        <img src="https://picsum.photos/300/300?random=${i+20}" class="w-full h-full object-cover transform group-hover:scale-110 transition-transform duration-500">
+                                        <div class="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors"></div>
+                                        <div class="absolute bottom-0 w-full p-2 text-white text-xs opacity-0 group-hover:opacity-100 transition-opacity drop-shadow-md font-medium">
+                                            <i class="fas fa-image mr-1"></i> IMG_2024_${i}.jpg
+                                        </div>
+                                        <div class="absolute top-2 right-2 bg-white/80 rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                            <i class="far fa-heart text-gray-600 hover:text-red-500 text-xs"></i>
+                                        </div>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        </div>`;
+                } else if (tab === 'play') {
+                     content = `
+                        <div class="p-6 h-full overflow-auto animate-in fade-in duration-300">
+                            <div class="flex gap-4 mb-6 overflow-x-auto pb-2">
+                                <button class="bg-[#01875f] text-white px-4 py-1 rounded-full text-sm font-medium whitespace-nowrap shadow-sm">For you</button>
+                                <button class="bg-white border text-gray-600 px-4 py-1 rounded-full text-sm whitespace-nowrap hover:bg-gray-50">Top charts</button>
+                                <button class="bg-white border text-gray-600 px-4 py-1 rounded-full text-sm whitespace-nowrap hover:bg-gray-50">Kids</button>
+                                <button class="bg-white border text-gray-600 px-4 py-1 rounded-full text-sm whitespace-nowrap hover:bg-gray-50">Premium</button>
+                            </div>
+                            
+                            <div class="font-medium text-lg mb-4 flex justify-between items-center">
+                                <span>Recommended for you</span>
+                                <i class="fas fa-arrow-right text-gray-400 text-sm cursor-pointer"></i>
+                            </div>
+                            <div class="grid grid-cols-3 md:grid-cols-6 gap-6">
+                                 ${['TikTok', 'Instagram', 'Snapchat', 'Spotify', 'Netflix', 'Zoom', 'Telegram', 'WhatsApp', 'Discord', 'Twitter', 'Facebook', 'Reddit'].map(app => `
+                                    <div class="flex flex-col gap-2 cursor-pointer hover:bg-gray-50 p-2 rounded-xl transition-colors group">
+                                        <div class="aspect-square rounded-2xl bg-gray-100 shadow-sm overflow-hidden group-hover:shadow-md transition-shadow">
+                                             <img src="https://ui-avatars.com/api/?name=${app}&background=random&size=128&bold=true&color=fff" class="w-full h-full object-cover">
+                                        </div>
+                                        <div class="font-medium text-xs truncate">${app}</div>
+                                        <div class="text-[10px] text-gray-500 flex items-center gap-1">4.5 <i class="fas fa-star text-[8px]"></i></div>
+                                    </div>
+                                 `).join('')}
+                            </div>
+                        </div>`;
+                } else if (tab === 'youtube') {
+                     Apps.youtube.open(); 
+                     content = `<div class="h-full flex flex-col items-center justify-center text-gray-500 bg-gray-50"><i class="fab fa-youtube text-6xl text-red-500 mb-4 animate-bounce"></i><span class="text-sm">Opening YouTube App...</span></div>`;
+                     setTimeout(() => { WindowManager.close(id); }, 800);
+                }
+                
+                container.innerHTML = content;
+            }
+        },
+        'bsodMaker': {
+            title: 'BSOD Trigger',
+            icon: '<i class="fas fa-skull text-black"></i>',
+            open: () => {
+                WindowManager.open('bsodMaker', 'System Crasher', (id) => `
+                    <div class="flex flex-col h-full items-center justify-center bg-gray-100 p-6 text-center select-none">
+                        <div class="w-20 h-20 bg-orange-100 rounded-full flex items-center justify-center mb-4 animate-pulse">
+                            <i class="fas fa-radiation text-4xl text-orange-500"></i>
+                        </div>
+                        <h2 class="text-xl font-bold mb-2 text-gray-800">System Instability Tool</h2>
+                        <p class="mb-8 text-xs text-gray-500 max-w-[200px] leading-relaxed">Warning: This will initiate a critical system failure simulation. The system will restart.</p>
+                        
+                        <button class="group relative overflow-hidden bg-red-600 hover:bg-red-700 text-white font-bold py-3 px-8 rounded-lg shadow-lg active:scale-95 transition-all duration-200" onclick="System.triggerBSOD('MANUALLY_INITIATED_CRASH')">
+                            <span class="relative z-10 flex items-center gap-2"><i class="fas fa-power-off"></i> CRASH SYSTEM</span>
+                            <div class="absolute inset-0 bg-white/20 transform -skew-x-12 -translate-x-full group-hover:translate-x-full transition-transform duration-500"></div>
+                        </button>
+                    </div>
+                `, { width: '320px', height: '350px', icon: '<i class="fas fa-skull"></i>' });
+            }
+        }
+    };
+
+    const OS = {
+        init() {
+            FileSystem.init();
+            this.updateClock();
+            setInterval(() => this.updateClock(), 1000);
+            this.applySettings();
+            this.initStartMenu();
+
+            window.onerror = function(msg, url, line) {
+                if(WindowManager && WindowManager.showError) {
+                    WindowManager.showError('System Fault', `Uncaught Exception:\n${msg}`);
+                }
+                return true; 
+            };
+        },
+        
+        initStartMenu() {
+            const startGrid = getEl('start-menu-grid');
+            startGrid.innerHTML = '';
+            
+            const appsList = [
+                { id: 'explorer', name: 'File Explorer', icon: 'fas fa-folder text-yellow-400', action: () => Apps.explorer.open() },
+                { id: 'settings', name: 'Settings', icon: 'fas fa-cog text-gray-500', action: () => Apps.settings.open() },
+                { id: 'notepad', name: 'Notepad', icon: 'fas fa-sticky-note text-yellow-300', action: () => Apps.notepad.open() },
+                { id: 'paint', name: 'Paint', icon: 'fas fa-palette text-purple-400', action: () => Apps.paint.open() },
+                { id: 'python', name: 'Python IDE', icon: 'fab fa-python text-blue-300', action: () => Apps.python.open() },
+                { id: 'snake', name: 'Snake', icon: 'fas fa-gamepad text-green-400', action: () => Apps.games.snake() },
+                { id: 'clicker', name: 'Clicker', icon: 'fas fa-mouse-pointer text-yellow-500', action: () => Apps.games.clicker() },
+                { id: 'minecraft', name: 'Minecraft', icon: 'fas fa-cube text-green-700', action: () => Apps.games.minecraft() },
+                { id: 'youtube', name: 'YouTube', icon: 'fab fa-youtube text-red-600', action: () => Apps.youtube.open() },
+                { id: 'camera', name: 'Camera', icon: 'fas fa-camera text-blue-500', action: () => Apps.camera.open() },
+                { id: 'tv', name: 'TV', icon: 'fas fa-tv text-gray-600', action: () => Apps.tv.open() },
+                { id: 'ai', name: 'AI Assistant', icon: 'fas fa-robot text-purple-400', action: () => Apps.ai.open() },
+                { id: 'chat', name: 'Messenger', icon: 'fas fa-comment-dots text-blue-500', action: () => Apps.chat.open() },
+                { id: 'telegram', name: 'Telegram', icon: 'fab fa-telegram text-blue-400', action: () => Apps.telegram.open() },
+                { id: 'whatsapp', name: 'WhatsApp', icon: 'fab fa-whatsapp text-green-500', action: () => Apps.whatsapp.open() },
+                { id: 'discord', name: 'Discord', icon: 'fab fa-discord text-[#5865F2]', action: () => Apps.discord.open() },
+                { id: 'recorder', name: 'Voice Rec', icon: 'fas fa-microphone text-red-400', action: () => Apps.recorder.open() },
+                { id: 'taskmgr', name: 'Task Mgr', icon: 'fas fa-tasks text-cyan-400', action: () => Apps.taskManager.open() },
+                { id: 'codes', name: 'Win Codes', icon: 'fas fa-ticket-alt text-yellow-500', action: () => Apps.codes.open() },
+                { id: 'crazyError', name: 'Crazy Error', icon: 'fas fa-bomb text-red-600', action: () => Apps.crazyError.open() },
+                { id: 'music', name: 'Music', icon: 'fas fa-music text-pink-500', action: () => Apps.music.open() },
+                { id: 'alice', name: 'Alice', icon: 'fas fa-microphone-alt text-purple-600', action: () => Apps.alice.open() },
+                { id: 'google', name: 'Google All', icon: 'fab fa-google text-blue-500', action: () => Apps.google.open() },
+                { id: 'bsodMaker', name: 'BSOD Maker', icon: 'fas fa-skull text-gray-800', action: () => Apps.bsodMaker.open() },
+            ];
+            
+            appsList.forEach(app => {
+                const el = document.createElement('div');
+                el.className = 'flex flex-col items-center gap-2 cursor-pointer hover:bg-white/40 p-3 rounded-lg transition-all duration-200 hover:scale-105';
+                el.innerHTML = `<i class="${app.icon} text-2xl drop-shadow-sm"></i><span class="text-xs text-center font-medium text-gray-700 dark:text-gray-300">${app.name}</span>`;
+                el.onclick = () => { OS.toggleStartMenu(); app.action(); };
+                startGrid.appendChild(el);
+            });
+        },
+
+        toggleStartMenu() {
+            const menu = getEl('start-menu');
+            if (menu.classList.contains('opacity-0')) {
+                menu.classList.remove('opacity-0', 'translate-y-full', 'hidden');
+                menu.classList.add('translate-y-0');
+                
+                // Reset positions
+                menu.style.left = '';
+                menu.style.right = '';
+                menu.style.bottom = '';
+                menu.style.top = '';
+                menu.style.transform = '';
+
+                // Default styles for bottom/top
+                if (System.settings.taskbarPos === 'bottom') {
+                     menu.style.bottom = '60px';
+                } else if (System.settings.taskbarPos === 'top') {
+                     menu.style.top = '60px';
+                } else if (System.settings.taskbarPos === 'left') {
+                     menu.style.left = '60px';
+                     menu.style.bottom = '10px'; 
+                } else if (System.settings.taskbarPos === 'right') {
+                     menu.style.right = '60px';
+                     menu.style.bottom = '10px';
+                }
+
+                // Align logic for Horizontal taskbars
+                if (System.settings.taskbarPos === 'bottom' || System.settings.taskbarPos === 'top') {
+                    if (System.settings.startAlign === 'center') {
+                        menu.style.left = '50%';
+                        menu.style.transform = 'translateX(-50%)';
+                    } else if (System.settings.startAlign === 'left') {
+                        menu.style.left = '10px';
+                        menu.style.transform = 'none';
+                    } else {
+                        menu.style.right = '10px';
+                        menu.style.left = 'auto';
+                        menu.style.transform = 'none';
+                    }
+                }
+                
+            } else {
+                menu.classList.add('opacity-0', 'translate-y-full');
+                setTimeout(() => menu.classList.add('hidden'), 300);
+            }
+        },
+
+        updateTaskbar() {
+            const center = getEl('taskbar-center');
+            const startBtn = center.firstElementChild;
+            center.innerHTML = '';
+            center.appendChild(startBtn);
+
+            System.windows.forEach(win => {
+                const btn = document.createElement('button');
+                btn.className = 'taskbar-item p-2 rounded hover:bg-white/40 transition-colors bg-white/20 border-b-2 border-blue-400 w-10 h-10 flex items-center justify-center shadow-sm';
+                let icon = '<i class="fas fa-window-maximize"></i>';
+                if (Apps[win.appId]) icon = Apps[win.appId].icon;
+                
+                btn.innerHTML = `<div class="text-lg">${icon}</div>`;
+                btn.onclick = () => {
+                   if(getEl(win.id).style.display === 'none') WindowManager.restore(win.id);
+                   else WindowManager.minimize(win.id);
+                };
+                center.appendChild(btn);
+            });
+        },
+
+        openFile(file) {
+            if (file.type === 'folder' || file.id === 'desktop') {
+                Apps.explorer.open(file.id);
+            } else if (file.type === 'trash') {
+                 Apps.explorer.open(FileSystem.files.find(f => f.type === 'trash').id);
+            } else if (file.type === 'txt') {
+                 Apps.notepad.open(file.id);
+            } else if (file.type === 'img') {
+                 Apps.paint.open(file.id);
+            } else if (file.type === 'py') {
+                 Apps.python.open(file.id);
+            } else if (file.type === 'mp3') {
+                 Apps.music.open(file.id);
+            } else if (file.type === 'zip') {
+                 Apps.explorer.open(file.id);
+            } else {
+                alert("No app installed for this file type.");
+            }
+        },
+
+        updateClock() {
+            const now = new Date();
+            getEl('clock-time').innerText = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            getEl('clock-date').innerText = now.toLocaleDateString();
+        },
+
+        toggleTheme() {
+            System.settings.theme = System.settings.theme === 'light' ? 'dark' : 'light';
+            this.applySettings();
+        },
+        
+        changeWallpaper() {
+             System.settings.wallpaper = System.settings.wallpaper === 'default' ? 'dark' : 'default';
+             this.applySettings();
+        },
+
+        setTaskbarPos(pos) {
+            System.settings.taskbarPos = pos;
+            this.applySettings();
+        },
+        
+        setStartAlign(align) {
+            System.settings.startAlign = align;
+            this.applySettings();
+        },
+
+        applySettings() {
+            const body = getEl('main-body');
+            const desktop = getEl('desktop');
+            const taskbar = getEl('taskbar');
+            const startMenu = getEl('start-menu');
+            const contextMenu = getEl('context-menu');
+            
+            // Toggle Theme Classes
+            if (System.settings.theme === 'dark') {
+                body.classList.add('bg-gray-900', 'text-white');
+                body.classList.remove('bg-gray-100', 'text-gray-900');
+                
+                // UI Components
+                taskbar.classList.remove('glass'); taskbar.classList.add('glass-dark');
+                startMenu.classList.remove('glass'); startMenu.classList.add('glass-dark');
+                contextMenu.classList.remove('glass'); contextMenu.classList.add('glass-dark');
+                
+                // Update Text Colors in Start Menu
+                startMenu.querySelectorAll('h3').forEach(h => {
+                    h.classList.remove('text-gray-600');
+                    h.classList.add('text-gray-300');
+                });
+                
+                // Update existing windows
+                System.windows.forEach(w => {
+                    const el = getEl(w.id);
+                    if (el) {
+                        el.classList.remove('glass', 'text-gray-800');
+                        el.classList.add('glass-dark', 'text-white');
+                        // Update window header buttons
+                        const btns = el.querySelectorAll('button');
+                        btns.forEach(b => {
+                            if(!b.classList.contains('bg-red-500')) b.classList.add('text-white');
+                        });
+                    }
+                });
+
+            } else {
+                body.classList.remove('bg-gray-900', 'text-white');
+                body.classList.add('bg-gray-100', 'text-gray-900');
+                
+                // UI Components
+                taskbar.classList.remove('glass-dark'); taskbar.classList.add('glass');
+                startMenu.classList.remove('glass-dark'); startMenu.classList.add('glass');
+                contextMenu.classList.remove('glass-dark'); contextMenu.classList.add('glass');
+                
+                // Update Text Colors in Start Menu
+                startMenu.querySelectorAll('h3').forEach(h => {
+                    h.classList.remove('text-gray-300');
+                    h.classList.add('text-gray-600');
+                });
+
+                // Update existing windows
+                System.windows.forEach(w => {
+                    const el = getEl(w.id);
+                    if (el) {
+                        el.classList.remove('glass-dark', 'text-white');
+                        el.classList.add('glass', 'text-gray-800');
+                        const btns = el.querySelectorAll('button');
+                         btns.forEach(b => {
+                            if(!b.classList.contains('bg-red-500')) b.classList.remove('text-white');
+                        });
+                    }
+                });
+            }
+
+            if (System.settings.wallpaper === 'default') {
+                desktop.classList.remove('wallpaper-dark');
+                desktop.classList.add('wallpaper-default');
+            } else {
+                 desktop.classList.remove('wallpaper-default');
+                 desktop.classList.add('wallpaper-dark');
+            }
+
+            // Taskbar Positioning Logic
+            taskbar.classList.remove('bottom-0', 'top-0', 'left-0', 'right-0', 'w-full', 'h-12', 'h-full', 'w-14', 'flex-col', 'px-2', 'py-2');
+            const center = getEl('taskbar-center');
+            center.classList.remove('flex-col', 'mx-auto', 'ml-0', 'mr-auto', 'ml-auto', 'mt-auto', 'mb-auto');
+            
+            if (System.settings.taskbarPos === 'bottom') {
+                taskbar.classList.add('bottom-0', 'left-0', 'w-full', 'h-12', 'px-2');
+            } else if (System.settings.taskbarPos === 'top') {
+                taskbar.classList.add('top-0', 'left-0', 'w-full', 'h-12', 'px-2');
+            } else if (System.settings.taskbarPos === 'left') {
+                taskbar.classList.add('left-0', 'top-0', 'h-full', 'w-14', 'flex-col', 'py-2');
+                center.classList.add('flex-col');
+            } else if (System.settings.taskbarPos === 'right') {
+                taskbar.classList.add('right-0', 'top-0', 'h-full', 'w-14', 'flex-col', 'py-2');
+                center.classList.add('flex-col');
+            }
+            
+            if (System.settings.taskbarPos === 'bottom' || System.settings.taskbarPos === 'top') {
+                 if(System.settings.startAlign === 'center') center.classList.add('mx-auto');
+                 else if(System.settings.startAlign === 'left') center.classList.add('mr-auto');
+                 else center.classList.add('ml-auto');
+            }
+        }
+    };
+
+    // Right Click Context Menu
+    document.addEventListener('contextmenu', (e) => {
+        e.preventDefault();
+        const menu = getEl('context-menu');
+        menu.style.left = e.pageX + 'px';
+        menu.style.top = e.pageY + 'px';
+        menu.classList.remove('hidden');
+        
+        menu.innerHTML = `
+            <div class="px-4 py-2 hover:bg-blue-600 hover:text-white cursor-pointer rounded-t-lg transition-colors" onclick="OS.toggleTheme()"><i class="fas fa-palette mr-2"></i>Personalize</div>
+            <div class="border-t border-gray-200/50 my-1"></div>
+            <div class="px-4 py-2 hover:bg-blue-600 hover:text-white cursor-pointer transition-colors" onclick="FileSystem.createFile('New Folder', 'folder', '', 'desktop'); FileSystem.renderDesktop();"><i class="fas fa-folder-plus mr-2"></i>New Folder</div>
+            <div class="px-4 py-2 hover:bg-blue-600 hover:text-white cursor-pointer transition-colors" onclick="FileSystem.createFile('New Text', 'txt', '', 'desktop'); FileSystem.renderDesktop();"><i class="fas fa-file-alt mr-2"></i>New Text Document</div>
+            <div class="px-4 py-2 hover:bg-blue-600 hover:text-white cursor-pointer transition-colors" onclick="FileSystem.createFile('New Image', 'img', '', 'desktop'); FileSystem.renderDesktop();"><i class="fas fa-image mr-2"></i>New Image</div>
+            <div class="px-4 py-2 hover:bg-blue-600 hover:text-white cursor-pointer transition-colors" onclick="FileSystem.createFile('Archive.zip', 'zip', '[]', 'desktop'); FileSystem.renderDesktop();"><i class="fas fa-file-archive mr-2"></i>New Archive</div>
+            <div class="px-4 py-2 hover:bg-blue-600 hover:text-white cursor-pointer rounded-b-lg transition-colors" onclick="FileSystem.createFile('script.py', 'py', 'print(1)', 'desktop'); FileSystem.renderDesktop();"><i class="fab fa-python mr-2"></i>New Python File</div>
+        `;
+    });
+
+    document.addEventListener('click', (e) => {
+        if (!e.target.closest('#context-menu')) {
+            getEl('context-menu').classList.add('hidden');
+        }
+        if (!e.target.closest('#start-menu') && !e.target.closest('.taskbar-item')) {
+             const menu = getEl('start-menu');
+             if (!menu.classList.contains('hidden')) OS.toggleStartMenu();
+        }
+    });
+    
+    // Global Search Listener
+    getEl('global-search').addEventListener('input', (e) => {
+        const query = e.target.value.toLowerCase();
+        const grid = getEl('start-menu-grid');
+        
+        if(!query) {
+             OS.initStartMenu();
+             return;
+        }
+        
+        // Search Files & Apps
+        const matchingFiles = FileSystem.files.filter(f => f.name.toLowerCase().includes(query));
+        grid.innerHTML = '';
+        
+        matchingFiles.forEach(f => {
+            const el = document.createElement('div');
+            el.className = 'flex flex-col items-center gap-1 cursor-pointer hover:bg-white/40 p-2 rounded transition-colors';
+            el.innerHTML = `<div class="text-xl">${FileSystem.getIcon(f.type)}</div><span class="text-xs font-medium">${f.name}</span>`;
+            el.onclick = () => OS.openFile(f);
+            grid.appendChild(el);
+        });
+    });
+
+    // Boot
+    OS.init();
+</script>
+</body>
+</html>
